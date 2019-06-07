@@ -1,0 +1,25 @@
+image: 'registry.scoopit.io/scoopit-runner'
+
+stages:
+  - build
+
+build:
+  stage: build
+  script:
+    - cargo build --all --all-targets --color=always
+    - cargo test
+
+release:
+  stage: build
+  only:
+    - tags
+  artifacts:
+    paths:
+      - target/release/http-requester
+      - target/release/jetty-scoop-warmup
+  script:
+    - cargo build --release --all --all-targets --color=always
+
+cache:
+  paths:
+    - target/
