@@ -6,7 +6,7 @@ use std::io::Read;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-struct FileBackend {
+pub struct FileBackend {
     root: PathBuf,
 }
 

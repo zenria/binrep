@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use crate::backend::file_backend::{FileBackend, FileBackendError};
 use crate::backend::Backend;
+use crate::config::{BackendType, Config};
 use crate::metadata::{Artifacts, Versions};
 use failure::{Error, Fail};
 use std::io;
@@ -37,6 +39,15 @@ fn validate_artifact_name(name: &str) -> Result<(), ArtifactNameError> {
 }
 
 impl Repository {
+    pub fn new(config: Config) -> Self {
+        // Construct the backend
+        let backend = match &config.backend.backend_type {
+            BackendType::File => Box::new(FileBackend::new(&config.backend.root)),
+            BackendType::S3 => unimplemented!(),
+        };
+        Self { backend }
+    }
+
     pub fn list_artifacts(&self) -> Result<Vec<String>, Error> {
         Ok(sane::from_str::<Artifacts>(&self.backend.read_file("/actifacts.sane")?)?.artifacts)
     }

@@ -18,17 +18,17 @@ pub enum BackendType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Backend {
     #[serde(rename = "type")]
-    backend_type: BackendType,
-    root: String,
+    pub backend_type: BackendType,
+    pub root: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
-    backend: Backend,
-    signature_method: SignatureMethod,
-    checksum_method: ChecksumMethod,
-    hmac_sha256_keys: Option<HashMap<String, String>>,
-    hmac_sha256_signing_key: Option<String>,
+    pub backend: Backend,
+    pub signature_method: SignatureMethod,
+    pub checksum_method: ChecksumMethod,
+    pub hmac_sha256_keys: Option<HashMap<String, String>>,
+    pub hmac_sha256_signing_key: Option<String>,
 }
 
 #[derive(Debug, Fail)]
