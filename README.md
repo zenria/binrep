@@ -90,10 +90,10 @@ For maximum interoperability sane metadata files should be mirrored with json fi
 
 ### Available hashing algorithm
 
-`SHA-256`
+`SHA256`
 
 ### Available signature method
 
-`HMAC_SHA-256` publisher & repository readers can agree on what key to use by using the key_id field.
+`HMAC_SHA256` publisher & repository readers can agree on what key to use by using the key_id field.
 
 
