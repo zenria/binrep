@@ -1,0 +1,20 @@
+backend = {
+    type = "file",
+    root = "./test-repo"
+}
+
+# Signature method when publishing
+signature_method = "HMAC_SHA256"
+# Checksum method when publishing
+checksum_method = "SHA256"
+
+# List available keys for HMAC SHA256 signature method
+hmac_sha256_keys = {
+    "test-key" = "123456789"
+}
+
+# Reference to HMAC SHA256 key when publishing
+hmac_sha256_signing_key = "test-key"
+
+
+
