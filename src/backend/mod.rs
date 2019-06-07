@@ -1,5 +1,5 @@
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub mod file_backend;
 
@@ -14,11 +14,7 @@ pub trait Backend {
     /// The path is relative to the ROOT of the backend
     fn create_file(&self, path: &str, data: String) -> Result<(), failure::Error>;
 
-    fn push_file<P: AsRef<Path>>(&self, local: P, remote: &str) -> Result<(), failure::Error>;
+    fn push_file(&self, local: PathBuf, remote: &str) -> Result<(), failure::Error>;
 
-    fn pull_file<P: AsRef<Path>>(
-        &self,
-        remote: &str,
-        local_directory: P,
-    ) -> Result<(), failure::Error>;
+    fn pull_file(&self, remote: &str, local_directory: PathBuf) -> Result<(), failure::Error>;
 }

@@ -62,14 +62,14 @@ impl Backend for FileBackend {
         Ok(())
     }
 
-    fn push_file<P: AsRef<Path>>(&self, local: P, remote: &str) -> Result<(), Error> {
+    fn push_file(&self, local: PathBuf, remote: &str) -> Result<(), Error> {
         let remote_file_path = get_path(self.root.clone(), remote);
         self.mkdirs(&remote_file_path)?;
         std::fs::copy(local, remote_file_path)?;
         Ok(())
     }
 
-    fn pull_file<P: AsRef<Path>>(&self, remote: &str, local_directory: P) -> Result<(), Error> {
+    fn pull_file(&self, remote: &str, local_directory: PathBuf) -> Result<(), Error> {
         let remote_file_path = get_path(self.root.clone(), remote);
         std::fs::copy(remote_file_path, local_directory)?;
         Ok(())
@@ -129,10 +129,10 @@ mod test {
         assert_eq!(data, bck.read_file("root.txt").unwrap());
         assert_eq!(data, bck.read_file("/root.txt").unwrap()); // also works with starting slash ;)
 
-        bck.push_file("./Cargo.toml", "Cargo.toml").unwrap();
+        bck.push_file("./Cargo.toml".into(), "Cargo.toml").unwrap();
         assert_file_equals("./Cargo.toml", bck.read_file("Cargo.toml").unwrap());
 
-        bck.push_file("./Cargo.toml", "/foo2/bar/othername.toml")
+        bck.push_file("./Cargo.toml".into(), "/foo2/bar/othername.toml")
             .unwrap();
         assert_file_equals(
             "./Cargo.toml",
