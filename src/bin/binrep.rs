@@ -1,7 +1,11 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
+use binrep::config::Config;
+use failure::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
+
+use binrep::config_resolver;
 
 #[derive(StructOpt)]
 struct ListOptions {
@@ -45,4 +49,14 @@ struct Opt {
 ///
 fn main() {
     let opt = Opt::from_args();
+    if let Err(e) = _main(opt) {
+        eprintln!("{}", e);
+        std::process::exit(1);
+    }
+}
+
+fn _main(opt: Opt) -> Result<(), Error> {
+    let config: Config = config_resolver::resolve_config(opt.config_file)?;
+
+    Ok(())
 }

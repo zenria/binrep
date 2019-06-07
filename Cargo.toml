@@ -11,6 +11,7 @@ structopt = "0.2"
 failure = "0.1.5"
 ring="0.14.6"
 rand="0.6.5"
+shellexpand = "1.0.0"
 
 [[bin]]
 name="binrep"

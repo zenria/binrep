@@ -58,7 +58,7 @@ impl Backend for FileBackend {
         let file_path = get_path(self.root.clone(), path);
         self.mkdirs(&file_path)?;
         let mut file = File::create(file_path)?;
-        file.write_all(data.as_bytes());
+        file.write_all(data.as_bytes())?;
         Ok(())
     }
 
@@ -115,6 +115,7 @@ mod test {
     }
 
     #[test]
+    #[allow(unused_must_use)]
     fn test_backend() {
         std::fs::remove_dir_all("./tests-data");
         let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(30).collect();
@@ -122,8 +123,9 @@ mod test {
         root.push_str(&rand_string);
         let bck = super::FileBackend::new(&root);
         let data = "This is some data";
-        bck.create_file("foo/bar/some.txt", data.to_string());
-        bck.create_file("root.txt", data.to_string());
+        bck.create_file("foo/bar/some.txt", data.to_string())
+            .unwrap();
+        bck.create_file("root.txt", data.to_string()).unwrap();
         assert_eq!(data, bck.read_file("foo/bar/some.txt").unwrap());
         assert_eq!(data, bck.read_file("/foo/bar/some.txt").unwrap()); // also works with starting slash ;)
         assert_eq!(data, bck.read_file("root.txt").unwrap());

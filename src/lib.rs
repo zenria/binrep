@@ -10,6 +10,7 @@ use std::path::Path;
 
 pub mod backend;
 pub mod config;
+pub mod config_resolver;
 pub mod metadata;
 
 pub type Version = String;
@@ -27,7 +28,7 @@ fn validate_artifact_name(name: &str) -> Result<(), ArtifactNameError> {
         return Err(ArtifactNameError);
     }
     name.as_bytes().iter().try_for_each(|c| {
-        if c.is_ascii_alphanumeric() || *c == '-' as u8 || *c == '_' as u8 {
+        if c.is_ascii_alphanumeric() || *c == '-' as u8 || *c == '_' as u8 || *c == '.' as u8 {
             Ok(())
         } else {
             Err(ArtifactNameError)
@@ -53,7 +54,7 @@ mod test {
     #[test]
     fn validate_artifact_name() {
         super::validate_artifact_name("foo").unwrap();
-        super::validate_artifact_name("-f_54321Affesoo").unwrap();
+        super::validate_artifact_name("-f_54321Af.fesoo").unwrap();
         assert!(super::validate_artifact_name(" ").is_err());
         assert!(super::validate_artifact_name("").is_err());
         assert!(super::validate_artifact_name("someé").is_err());

@@ -1,5 +1,5 @@
 use crate::metadata::{ChecksumMethod, SignatureMethod};
-use failure::Fail;
+use failure::{Error, Fail};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -67,7 +67,7 @@ impl Config {
         }
     }
 
-    pub fn read_from_file<P: AsRef<Path>>(file: P) -> Result<Config, Box<std::error::Error>> {
+    pub fn read_from_file<P: AsRef<Path>>(file: P) -> Result<Config, Error> {
         let mut config_file = File::open(&file)?;
         let mut config = String::new();
         config_file.read_to_string(&mut config)?;
