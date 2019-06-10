@@ -1,10 +1,18 @@
-use crate::Version;
+use semver::Version;
 use serde::Deserialize;
 use serde::Serialize;
+use std::convert::TryFrom;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Artifacts {
     pub artifacts: Vec<String>,
+}
+impl Artifacts {
+    pub fn new() -> Self {
+        Self {
+            artifacts: Vec::new(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -17,7 +25,15 @@ pub struct Versions {
     pub versions: Vec<Version>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+impl Versions {
+    pub fn new() -> Self {
+        Self {
+            versions: Vec::new(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Copy)]
 pub enum ChecksumMethod {
     #[serde(rename = "SHA256")]
     Sha256,

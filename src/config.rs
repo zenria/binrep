@@ -3,7 +3,6 @@ use failure::{Error, Fail};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io;
 use std::io::Read;
 use std::path::Path;
 
@@ -23,12 +22,17 @@ pub struct Backend {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Config {
-    pub backend: Backend,
+pub struct PublishParameters {
     pub signature_method: SignatureMethod,
     pub checksum_method: ChecksumMethod,
-    pub hmac_sha256_keys: Option<HashMap<String, String>>,
     pub hmac_sha256_signing_key: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Config {
+    pub backend: Backend,
+    pub publish_parameters: Option<PublishParameters>,
+    pub hmac_sha256_keys: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Fail)]
@@ -39,34 +43,18 @@ pub enum ConfigValidationError {
     NoHmacKeysConfigured,
     #[fail(display = "no hmac signing keys configured!")]
     NoHmacSigningKeysConfigured,
+    #[fail(display = "no publish parameters")]
+    NoPublishParameters,
+    #[fail(
+        display = "found invalid hmac 256 key (needs to be 32 bytes long base64 encoded) {}",
+        _0
+    )]
+    InvalidHmac256Key(String),
+    #[fail(display = "invalid base 64 encoded string: {}", _0)]
+    InvalidBase64Encoding(String),
 }
 
 impl Config {
-    fn validate_hmac_sha256_signature_method(&self) -> Result<(), ConfigValidationError> {
-        match &self.hmac_sha256_keys {
-            None => Err(ConfigValidationError::NoHmacKeysConfigured),
-            Some(hmac_sha256_keys) => match &self.hmac_sha256_signing_key {
-                None => Err(ConfigValidationError::NoHmacSigningKeysConfigured),
-                Some(key_id) => {
-                    if !hmac_sha256_keys.contains_key(key_id) {
-                        Err(ConfigValidationError::HmacSigningKeyNotFound {
-                            key_id: key_id.clone(),
-                        })
-                    } else {
-                        Ok(())
-                    }
-                }
-            },
-        }
-    }
-
-    pub fn validate_publish_signature_method(&self) -> Result<(), ConfigValidationError> {
-        match &self.signature_method {
-            SignatureMethod::HmacSha256 => self.validate_hmac_sha256_signature_method(),
-            _ => unimplemented!(),
-        }
-    }
-
     pub fn read_from_file<P: AsRef<Path>>(file: P) -> Result<Config, Error> {
         let mut config_file = File::open(&file)?;
         let mut config = String::new();
@@ -82,6 +70,6 @@ mod test {
     #[test]
     fn parse_sample_config() {
         let config = super::Config::read_from_file("config.sane").unwrap();
-        config.validate_publish_signature_method().unwrap();
+        config.get_publish_algorithm().unwrap();
     }
 }

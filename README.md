@@ -8,9 +8,8 @@ The aim is to create a trusted repository of versioned binary artifacts accessib
 
 ## Version of binaries
 
-Version needs to follow the regex: ```[0-9]+(\.[0-9]+){1,2}(-[0-9A-Za-z_-]+)*```
+Version needs to follow semver 2.0 https://semver.org/spec/v2.0.0.html format. 
 
-Example of valid versions: ```1```,  ```1.0```, ```1.2.3```,  ```1.6-12-fixed```...
 
 ## Metadata file format
 
@@ -79,7 +78,7 @@ signature = {
 ```
 
 Signature is generated as follow: 
-- concatenate the name, checksum, and checksum_method of each file, in the order they appear in the files field,
+- concatenate the name and checksum of each file, in the order they appear in the files field,
 - convert the string to UTF-8 bytes
 - sign the UTF-8 bytes with the private key and the signature_method
 - output the result to base64.

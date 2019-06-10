@@ -1,10 +1,10 @@
 use crate::backend::Backend;
 use failure::Error;
 use failure::Fail;
-use std::fs::{File, Metadata};
+use std::fs::File;
 use std::io::Read;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub struct FileBackend {
     root: PathBuf,
