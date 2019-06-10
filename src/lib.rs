@@ -41,6 +41,8 @@ enum RepositoryError {
     ArtifactNameError,
     #[fail(display = "Artifact version already exists")]
     ArtifactVersionAlreadyExists,
+    #[fail(display = "Wrong artifact signature")]
+    WrongArtifactSignature,
 }
 
 fn validate_artifact_name(name: &str) -> Result<(), RepositoryError> {
@@ -164,7 +166,11 @@ impl Repository {
         validate_artifact_name(artifact_name)?;
 
         let path: String = path::artifact::artifact(artifact_name, artifact_version);
-        Ok(sane::from_str::<Artifact>(&self.backend.read_file(&path)?)?)
+        let ret = sane::from_str::<Artifact>(&self.backend.read_file(&path)?)?;
+        if !ret.verify_signature(&self.config)? {
+            Err(RepositoryError::WrongArtifactSignature)?;
+        }
+        Ok(ret)
     }
 
     pub fn push_artifact<P: AsRef<Path>>(
