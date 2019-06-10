@@ -19,8 +19,9 @@ use failure::{Error, Fail};
 use ring::digest::{Algorithm, Digest};
 use semver::Version;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, ErrorKind, Read};
 use std::path::{Path, PathBuf};
+use tempfile::{tempdir, TempDir};
 
 pub mod backend;
 pub mod config;
@@ -43,6 +44,10 @@ enum RepositoryError {
     ArtifactVersionAlreadyExists,
     #[fail(display = "Wrong artifact signature")]
     WrongArtifactSignature,
+    #[fail(display = "Wrong file checksum for {}", _0)]
+    WrongFileChecksum(String),
+    #[fail(display = "Destination file already exists {}", _0)]
+    DestinationFileAlreadyExists(String),
 }
 
 fn validate_artifact_name(name: &str) -> Result<(), RepositoryError> {
@@ -259,14 +264,101 @@ impl Repository {
     pub fn pull_artifact<P: AsRef<Path>>(
         &self,
         artifact_name: &str,
-        artifact_version: &str,
+        artifact_version: &Version,
         destination_dir: P,
         overwrite_dest: bool,
     ) -> Result<Artifact, Error> {
         // First: download to a temporary dir,
         // then verify checksum
         // then move to final destination
-        unimplemented!()
+
+        let artifact = self.get_artifact(artifact_name, artifact_version)?;
+
+        let tmp_dir = tempdir()?;
+
+        let temporary_file_paths: Vec<PathBuf> =
+            artifact
+                .files
+                .iter()
+                .try_fold(Vec::new(), |mut files, file| -> Result<_, Error> {
+                    files.push(self.copy_to_tmpdir(
+                        artifact_name,
+                        artifact_version,
+                        file,
+                        &tmp_dir,
+                    )?);
+                    Ok(files)
+                })?;
+
+        // all files are downloaded with checksum been verified,
+        // move them to the final destination
+        let mut dest_path = PathBuf::new();
+        dest_path.push(destination_dir);
+
+        if let Err(e) = std::fs::create_dir_all(&dest_path) {
+            dbg!(&dest_path);
+            match e.kind() {
+                ErrorKind::AlreadyExists => (), // just ignore
+                _ => Err(e)?,
+            }
+        }
+        // check file presence
+        let dest_file_paths =
+            artifact
+                .files
+                .iter()
+                .try_fold(Vec::new(), |mut paths, file| -> Result<_, Error> {
+                    let mut dest_file_path = PathBuf::new();
+                    dest_file_path.push(&dest_path);
+                    dest_file_path.push(&file.name);
+                    if let Ok(_) = std::fs::metadata(&dest_file_path) {
+                        if !overwrite_dest {
+                            // cannot overwrite => error
+                            Err(RepositoryError::DestinationFileAlreadyExists(
+                                dest_file_path.to_string_lossy().into(),
+                            ))?;
+                        } else {
+                            // delete existing file
+                            std::fs::remove_file(&dest_file_path)?;
+                        }
+                    }
+                    paths.push(dest_file_path);
+                    Ok(paths)
+                })?;
+
+        temporary_file_paths
+            .iter()
+            .zip(dest_file_paths.iter())
+            .try_for_each(|(src, dst)| std::fs::rename(src, dst))?;
+
+        Ok(artifact)
+    }
+
+    fn copy_to_tmpdir(
+        &self,
+        artifact_name: &str,
+        artifact_version: &Version,
+        file: &metadata::File,
+        tmp_dir: &TempDir,
+    ) -> Result<PathBuf, Error> {
+        let mut dest_path = PathBuf::new();
+        dest_path.push(tmp_dir.path());
+        dest_path.push(&file.name);
+        self.backend.pull_file(
+            &path::artifact::artifact_file(artifact_name, artifact_version, &file.name),
+            dest_path.clone(),
+        )?;
+
+        // let's checksum the file.
+        let digest = base64::encode(&crypto::digest_file(
+            dest_path.clone(),
+            file.checksum_method.algorithm(),
+        )?);
+        // verify the checksum
+        if digest != file.checksum {
+            Err(RepositoryError::WrongFileChecksum(file.name.clone()))?;
+        }
+        Ok(dest_path)
     }
 }
 
@@ -331,10 +423,34 @@ mod test {
 
         repo.get_artifact("binrep", &Version::parse("1.2.1").unwrap())
             .unwrap();
+
+        repo.pull_artifact(
+            "binrep",
+            &Version::parse("1.2.1").unwrap(),
+            "./test-file-backend-repo-pull",
+            false,
+        )
+        .unwrap();
+        assert!(repo
+            .pull_artifact(
+                "binrep",
+                &Version::parse("1.2.1").unwrap(),
+                "./test-file-backend-repo-pull",
+                false,
+            )
+            .is_err());
+        repo.pull_artifact(
+            "binrep",
+            &Version::parse("1.2.1").unwrap(),
+            "./test-file-backend-repo-pull",
+            true,
+        )
+        .unwrap();
     }
 
     #[allow(unused_must_use)]
     fn clean_file_bck_dir() {
         std::fs::remove_dir_all("./test-file-backend-repo");
+        std::fs::remove_dir_all("./test-file-backend-repo-pull");
     }
 }
