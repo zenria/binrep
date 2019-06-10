@@ -62,6 +62,7 @@ pub struct Signature {
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Artifact {
     pub version: Version,
-    pub files: Vec<File>,
     pub signature_method: SignatureMethod,
+    pub signature: String,
+    pub files: Vec<File>,
 }

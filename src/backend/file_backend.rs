@@ -117,9 +117,9 @@ mod test {
     #[test]
     #[allow(unused_must_use)]
     fn test_backend() {
-        std::fs::remove_dir_all("./tests-data");
+        std::fs::remove_dir_all("./test-file-backend");
         let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(30).collect();
-        let mut root = String::from("./tests-data/");
+        let mut root = String::from("./test-file-backend/");
         root.push_str(&rand_string);
         let bck = super::FileBackend::new(&root);
         let data = "This is some data";

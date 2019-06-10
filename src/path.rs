@@ -18,7 +18,7 @@ pub mod artifact {
             artifact_name,
             "/",
             &format!("{}", artifact_version),
-            "/versions.sane",
+            "/artifact.sane",
         ]
         .into_iter()
         .collect()

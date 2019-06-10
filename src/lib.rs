@@ -222,6 +222,7 @@ impl Repository {
                     name: filename.to_string(),
                 })
                 .collect(),
+            signature,
         };
 
         for (file, filename) in files.iter().zip(filenames.iter()) {
@@ -255,6 +256,9 @@ impl Repository {
 
 #[cfg(test)]
 mod test {
+    use crate::config::Config;
+    use semver::Version;
+
     #[test]
     fn validate_artifact_name() {
         super::validate_artifact_name("foo").unwrap();
@@ -262,5 +266,27 @@ mod test {
         assert!(super::validate_artifact_name(" ").is_err());
         assert!(super::validate_artifact_name("").is_err());
         assert!(super::validate_artifact_name("someé").is_err());
+    }
+
+    #[test]
+    fn integration_test_file_backend() {
+        let config = Config::read_from_file("./test/test-file-backend-config.sane").unwrap();
+        clean_file_bck_dir();
+        let repo = super::Repository::new(config);
+        repo.push_artifact(
+            "binrep",
+            &Version::parse("1.2.3-alpha").unwrap(),
+            &vec![
+                "Cargo.toml",
+                "./src/lib.rs",
+                "test/test-file-backend-config.sane",
+            ],
+        )
+        .unwrap();
+    }
+
+    #[allow(unused_must_use)]
+    fn clean_file_bck_dir() {
+        std::fs::remove_dir_all("./test-file-backend-repo");
     }
 }
