@@ -328,9 +328,19 @@ impl Repository {
         temporary_file_paths
             .iter()
             .zip(dest_file_paths.iter())
-            .try_for_each(|(src, dst)| std::fs::rename(src, dst))?;
+            .try_for_each(|(src, dst)| Self::mv(src, dst))?;
 
         Ok(artifact)
+    }
+
+    fn mv<S: AsRef<Path>, D: AsRef<Path>>(src: S, dst: D) -> Result<(), std::io::Error> {
+        match std::fs::rename(src.as_ref(), dst.as_ref()) {
+            Ok(_) => Ok(()),
+            Err(e) => match e.kind() {
+                ErrorKind::Other => std::fs::copy(src, dst).map(|_| ()),
+                _ => Err(e),
+            },
+        }
     }
 
     fn copy_to_tmpdir(
