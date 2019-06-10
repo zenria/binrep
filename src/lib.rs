@@ -286,7 +286,7 @@ mod test {
     fn integration_test_file_backend() {
         let config = Config::read_from_file("./test/test-file-backend-config.sane").unwrap();
         clean_file_bck_dir();
-        let repo = super::Repository::new(config.clone());
+        let repo = super::Repository::new(config);
         repo.push_artifact(
             "binrep",
             &Version::parse("1.2.3-alpha").unwrap(),
@@ -327,11 +327,8 @@ mod test {
             )
             .is_err());
 
-        assert!(repo
-            .get_artifact("binrep", &Version::parse("1.2.1").unwrap())
-            .unwrap()
-            .verify_signature(&config)
-            .unwrap());
+        repo.get_artifact("binrep", &Version::parse("1.2.1").unwrap())
+            .unwrap();
     }
 
     #[allow(unused_must_use)]

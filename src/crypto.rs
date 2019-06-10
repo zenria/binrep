@@ -81,7 +81,7 @@ pub struct PublishAlgorithms {
 }
 
 impl ChecksumMethod {
-    pub fn algorithm(&self) -> &'static digest::Algorithm {
+    pub(crate) fn algorithm(&self) -> &'static digest::Algorithm {
         match self {
             ChecksumMethod::Sha256 => &digest::SHA256,
         }
@@ -93,7 +93,7 @@ impl Config {
     ///
     /// If not configured or misconfigured (missing key, invalid key, invalid algorithm...)
     /// return a ConfigurationValidationError
-    pub fn get_publish_algorithm(&self) -> Result<PublishAlgorithms, ConfigValidationError> {
+    pub(crate) fn get_publish_algorithm(&self) -> Result<PublishAlgorithms, ConfigValidationError> {
         match &self.publish_parameters {
             None => Err(ConfigValidationError::NoPublishParameters),
             Some(params) => Ok(PublishAlgorithms {
@@ -103,7 +103,7 @@ impl Config {
         }
     }
 
-    pub fn get_verifier(
+    pub(crate) fn get_verifier(
         &self,
         signature_method: &SignatureMethod,
         key_id: &str,
@@ -129,7 +129,7 @@ impl Config {
         }
     }
 
-    pub fn get_signer(
+    pub(crate) fn get_signer(
         &self,
         publish_parameters: &PublishParameters,
     ) -> Result<Box<Signer>, ConfigValidationError> {
@@ -187,7 +187,7 @@ impl Config {
 }
 
 impl Artifact {
-    pub fn verify_signature(&self, config: &Config) -> Result<bool, Error> {
+    pub(crate) fn verify_signature(&self, config: &Config) -> Result<bool, Error> {
         let msg: Vec<u8> = self
             .files
             .iter()
