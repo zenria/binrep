@@ -261,9 +261,11 @@ impl Repository {
         artifact_name: &str,
         artifact_version: &str,
         destination_dir: P,
+        overwrite_dest: bool,
     ) -> Result<Artifact, Error> {
         // First: download to a temporary dir,
-        // then verify checksum & signatures
+        // then verify checksum
+        // then move to final destination
         unimplemented!()
     }
 }

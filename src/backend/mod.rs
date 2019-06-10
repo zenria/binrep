@@ -15,5 +15,8 @@ pub trait Backend {
 
     fn push_file(&self, local: PathBuf, remote: &str) -> Result<(), failure::Error>;
 
-    fn pull_file(&self, remote: &str, local_directory: PathBuf) -> Result<(), failure::Error>;
+    /// Pull a file from the backend to a local file.
+    ///
+    /// It does not check if the local file exists!
+    fn pull_file(&self, remote: &str, local: PathBuf) -> Result<(), failure::Error>;
 }

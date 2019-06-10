@@ -69,9 +69,9 @@ impl Backend for FileBackend {
         Ok(())
     }
 
-    fn pull_file(&self, remote: &str, local_directory: PathBuf) -> Result<(), Error> {
+    fn pull_file(&self, remote: &str, local: PathBuf) -> Result<(), Error> {
         let remote_file_path = get_path(self.root.clone(), remote);
-        std::fs::copy(remote_file_path, local_directory)?;
+        std::fs::copy(remote_file_path, local)?;
         Ok(())
     }
 }
@@ -140,6 +140,17 @@ mod test {
             "./Cargo.toml",
             bck.read_file("/foo2/bar/othername.toml").unwrap(),
         );
+
+        bck.pull_file(
+            "/foo2/bar/othername.toml",
+            PathBuf::from("./test-file-backend/othername.toml"),
+        )
+        .unwrap();
+        bck.pull_file(
+            "/foo2/bar/othername.toml",
+            PathBuf::from("./test-file-backend/othername.toml"),
+        )
+        .unwrap();
     }
 
     fn assert_file_equals<A: AsRef<Path>>(file: A, data: String) {
