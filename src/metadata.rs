@@ -54,15 +54,14 @@ pub enum SignatureMethod {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Signature {
-    key_id: String,
-    signature: String,
-    signature_method: SignatureMethod,
+    pub key_id: String,
+    pub signature: String,
+    pub signature_method: SignatureMethod,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Artifact {
     pub version: Version,
-    pub signature_method: SignatureMethod,
-    pub signature: String,
+    pub signature: Signature,
     pub files: Vec<File>,
 }

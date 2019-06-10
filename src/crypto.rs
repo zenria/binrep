@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::config::ConfigValidationError;
 use crate::config::PublishParameters;
-use crate::metadata::{ChecksumMethod, SignatureMethod};
+use crate::metadata::{Artifact, ChecksumMethod, SignatureMethod};
 use failure::Error;
 use ring::hmac::sign;
 use ring::{digest, hmac, rand};
@@ -12,19 +12,22 @@ pub trait Signer {
     fn sign(&self, msg: &[u8]) -> Result<Vec<u8>, Error>;
 
     fn signature_method(&self) -> SignatureMethod;
+
+    fn key_id(&self) -> String;
 }
 
 pub trait Verifier {
-    fn verify(&self, msg: &[u8], signature: Vec<u8>) -> Result<bool, Error>;
+    fn verify(&self, msg: &[u8], signature: Vec<u8>) -> bool;
 }
 
 pub struct HmacSha256Signature {
     key: Vec<u8>,
+    key_id: String,
 }
 
 impl HmacSha256Signature {
-    pub fn new(key: Vec<u8>) -> Self {
-        Self { key }
+    pub fn new(key: Vec<u8>, key_id: String) -> Self {
+        Self { key, key_id }
     }
 }
 
@@ -38,15 +41,19 @@ impl Signer for HmacSha256Signature {
     fn signature_method(&self) -> SignatureMethod {
         SignatureMethod::HmacSha256
     }
+
+    fn key_id(&self) -> String {
+        self.key_id.clone()
+    }
 }
 
 impl Verifier for HmacSha256Signature {
-    fn verify(&self, msg: &[u8], signature: Vec<u8>) -> Result<bool, Error> {
+    fn verify(&self, msg: &[u8], signature: Vec<u8>) -> bool {
         let v_key = hmac::VerificationKey::new(&digest::SHA256, &self.key);
-        Ok(match hmac::verify(&v_key, msg, &signature) {
+        match hmac::verify(&v_key, msg, &signature) {
             Ok(_) => true,
             Err(_) => false,
-        })
+        }
     }
 }
 
@@ -96,6 +103,32 @@ impl Config {
         }
     }
 
+    pub fn get_verifier(
+        &self,
+        signature_method: &SignatureMethod,
+        key_id: &str,
+    ) -> Result<Box<Verifier>, ConfigValidationError> {
+        match signature_method {
+            SignatureMethod::HmacSha256 => {
+                let keys = self
+                    .hmac_sha256_keys
+                    .as_ref()
+                    .ok_or(ConfigValidationError::NoHmacKeysConfigured)?;
+                let key =
+                    keys.get(key_id)
+                        .ok_or(ConfigValidationError::HmacSigningKeyNotFound {
+                            key_id: key_id.to_string(),
+                        })?;
+                let decoded_key = base64::decode(key)
+                    .map_err(|e| ConfigValidationError::InvalidBase64Encoding(key.clone()))?;
+                Ok(Box::new(HmacSha256Signature::new(
+                    decoded_key,
+                    key_id.to_string(),
+                )))
+            }
+        }
+    }
+
     pub fn get_signer(
         &self,
         publish_parameters: &PublishParameters,
@@ -103,13 +136,13 @@ impl Config {
         // Signer means publish parameters are mandatory:
 
         match publish_parameters.signature_method {
-            SignatureMethod::HmacSha256 => Ok(Box::new(
-                self.get_hmac_sha256_signer_verifier(publish_parameters)?,
-            )),
+            SignatureMethod::HmacSha256 => {
+                Ok(Box::new(self.get_hmac_sha256_signer(publish_parameters)?))
+            }
         }
     }
 
-    fn get_hmac_sha256_signer_verifier(
+    fn get_hmac_sha256_signer(
         &self,
         publish_parameters: &PublishParameters,
     ) -> Result<HmacSha256Signature, ConfigValidationError> {
@@ -117,7 +150,10 @@ impl Config {
 
         match &publish_parameters.hmac_sha256_signing_key {
             None => Err(ConfigValidationError::NoHmacKeysConfigured),
-            Some(key_id) => Ok(HmacSha256Signature::new(self.get_key_bytes(key_id)?)),
+            Some(key_id) => Ok(HmacSha256Signature::new(
+                self.get_key_bytes(key_id)?,
+                key_id.clone(),
+            )),
         }
     }
     fn get_key_bytes(&self, key_id: &str) -> Result<Vec<u8>, ConfigValidationError> {
@@ -147,5 +183,27 @@ impl Config {
                     Ok(key_bytes)
                 }
             })
+    }
+}
+
+impl Artifact {
+    pub fn verify_signature(&self, config: &Config) -> Result<bool, Error> {
+        let msg: Vec<u8> = self
+            .files
+            .iter()
+            .map(|file| {
+                file.name
+                    .as_bytes()
+                    .iter()
+                    .chain(file.checksum.as_bytes().iter())
+            })
+            .flatten()
+            .map(|c| *c)
+            .collect();
+
+        let verifier =
+            config.get_verifier(&self.signature.signature_method, &self.signature.key_id)?;
+
+        Ok(verifier.verify(&msg, base64::decode(&self.signature.signature)?))
     }
 }

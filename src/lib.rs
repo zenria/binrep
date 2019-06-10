@@ -10,7 +10,9 @@ use crate::backend::file_backend::FileBackend;
 use crate::backend::Backend;
 use crate::config::{BackendType, Config};
 use crate::crypto::Signer;
-use crate::metadata::{Artifact, Artifacts, ChecksumMethod, Latest, SignatureMethod, Versions};
+use crate::metadata::{
+    Artifact, Artifacts, ChecksumMethod, Latest, Signature, SignatureMethod, Versions,
+};
 use crate::path::artifacts;
 use core::borrow::Borrow;
 use failure::{Error, Fail};
@@ -27,6 +29,7 @@ mod crypto;
 pub mod metadata;
 mod path;
 
+/// Low level API to the repository
 pub struct Repository {
     backend: Box<Backend>,
     config: Config,
@@ -202,16 +205,19 @@ impl Repository {
                 .to_string_lossy();
 
             // construct string to sign
-            to_sign.push_str(&digest);
             to_sign.push_str(&filename);
+            to_sign.push_str(&digest);
 
             filenames.push(filename);
             digests.push(digest);
         }
-        let signature = base64::encode(&publish_algorithm.signer.sign(to_sign.as_bytes())?);
+        let signature = Signature {
+            key_id: publish_algorithm.signer.key_id(),
+            signature_method: publish_algorithm.signer.signature_method(),
+            signature: base64::encode(&publish_algorithm.signer.sign(to_sign.as_bytes())?),
+        };
 
         let artifact = Artifact {
-            signature_method: publish_algorithm.signer.signature_method(),
             version: version.clone(),
             files: filenames
                 .iter()
@@ -250,6 +256,8 @@ impl Repository {
         artifact_version: &str,
         destination_dir: P,
     ) -> Result<Artifact, Error> {
+        // First: download to a temporary dir,
+        // then verify checksum & signatures
         unimplemented!()
     }
 }
@@ -272,7 +280,7 @@ mod test {
     fn integration_test_file_backend() {
         let config = Config::read_from_file("./test/test-file-backend-config.sane").unwrap();
         clean_file_bck_dir();
-        let repo = super::Repository::new(config);
+        let repo = super::Repository::new(config.clone());
         repo.push_artifact(
             "binrep",
             &Version::parse("1.2.3-alpha").unwrap(),
@@ -283,6 +291,41 @@ mod test {
             ],
         )
         .unwrap();
+        repo.push_artifact(
+            "binrep",
+            &Version::parse("1.2.1").unwrap(),
+            &vec!["./src/backend/mod.rs", "./src/lib.rs"],
+        )
+        .unwrap();
+
+        assert_eq!(
+            vec!["binrep".to_string()],
+            repo.list_artifacts().unwrap().artifacts
+        );
+
+        let versions = repo.list_artifact_versions("binrep").unwrap().versions;
+        assert_eq!(2, versions.len());
+        assert!(versions.contains(&Version::parse("1.2.1").unwrap()));
+        assert!(versions.contains(&Version::parse("1.2.3-alpha").unwrap()));
+
+        assert_eq!(
+            Version::parse("1.2.3-alpha").unwrap(),
+            repo.latest_artifact_versions("binrep").unwrap()
+        );
+        // cannot push twice the same version
+        assert!(repo
+            .push_artifact(
+                "binrep",
+                &Version::parse("1.2.1").unwrap(),
+                &vec!["./src/backend/mod.rs", "./src/lib.rs"],
+            )
+            .is_err());
+
+        assert!(repo
+            .get_artifact("binrep", &Version::parse("1.2.1").unwrap())
+            .unwrap()
+            .verify_signature(&config)
+            .unwrap());
     }
 
     #[allow(unused_must_use)]
