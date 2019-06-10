@@ -7,7 +7,7 @@ build:
   stage: build
   script:
     - cargo build --all --all-targets --color=always
-    - cargo test
+    - RUST_BACKTRACE=1 cargo test
 
 release:
   stage: build

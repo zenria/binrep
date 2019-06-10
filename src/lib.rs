@@ -296,7 +296,6 @@ impl Repository {
         dest_path.push(destination_dir);
 
         if let Err(e) = std::fs::create_dir_all(&dest_path) {
-            dbg!(&dest_path);
             match e.kind() {
                 ErrorKind::AlreadyExists => (), // just ignore
                 _ => Err(e)?,
