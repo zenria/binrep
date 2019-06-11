@@ -1,15 +1,26 @@
 # binrep
 
+## Summary
 
-_Trusted binary repository_
+_a repository manager for versioned binary artifacts_
 
-The aim is to create a trusted repository of versioned binary artifacts accessible via file or network protocols (eg: HTTP). Binaries are signed by the uploader. Versions of binaries are tracked. 
+Binrep is a repository manager of versioned binary artifacts. It supports 
+storing the repository on local or network filesystem as well as AWS S3 backend. 
+Binrep can be used to safely distribute binaries produced by a CI/CD build system. 
 
+## Status
 
-## Version of binaries
+Binrep is still a work in progress. It is ready for testing use 
+
+## What is an artifact?
+
+An artifact is a named versioned collection of binary files. 
+
+Artifact names must only contain alphanumeric characters and `_-.`.  
 
 Version needs to follow semver 2.0 https://semver.org/spec/v2.0.0.html format. 
 
+Each artifact version can contains arbritraty number of files. 
 
 ## Metadata file format
 
@@ -95,4 +106,21 @@ For maximum interoperability sane metadata files should be mirrored with json fi
 
 `HMAC_SHA256` publisher & repository readers can agree on what key to use by using the key_id field.
 
+
+## License
+
+Licensed under either of
+
+ * Apache License, Version 2.0
+   ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license
+   ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
+## Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.
 
