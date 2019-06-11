@@ -52,7 +52,67 @@ Each artifact version can contains arbritraty number of files.
 
 ## Configuration
 
-TODO
+### Location of config file
+
+Configuration can be provided with the `-c` or `--config` flag. If no configuration is provided, binrep will 
+search in `~/.binrep/confif.sane` and `/etc/binrep/config.sane`.
+
+### Format of config file
+
+Config file for pulling artifacts
+```sane
+backend = {
+    type = "file",
+    root = "/mnt/test-repo"
+}
+
+# List available keys for HMAC SHA256 signature method
+hmac_sha256_keys = {
+    "test-key" = "okIy37MEOC8yCkCEcMbyVCYEWNZT7IV5wr+qQxFlYR0="
+}
+```
+
+For publishing artifact additional config is needed: 
+```sane
+backend = {
+    type = "file",
+    root = "./test-repo"
+}
+
+# List available keys for HMAC SHA256 signature method
+hmac_sha256_keys = {
+    "test-key" = "okIy37MEOC8yCkCEcMbyVCYEWNZT7IV5wr+qQxFlYR0="
+}
+
+# Parameters used when publishing artifacts
+publish_parameters = {
+    # Signature method when publishing
+    signature_method = "HMAC_SHA256",
+    # Checksum method when publishing
+    checksum_method = "SHA256",
+    # Reference to HMAC SHA256 key when publishing
+    hmac_sha256_signing_key = "test-key",
+}
+```
+### Available hashing algorithm
+
+`SHA256`
+
+### Available signature method
+
+`HMAC_SHA256` publisher & repository readers can agree on what key to use by using the key_id field.
+
+### Shared HMAC-SHA256 secret key
+
+Artifacts are hashed and the associated metadata (filename+hash) is signed using some crypto signature algorithm. 
+Currently, binrep only supports HMAC-SHA256 signature, pull & push clients must share a secret key to verify metadata
+integrity. The signing key has an id thus, multiple keys can be configured.
+
+The key consists of 32 random bytes. It must be base64 encoded to be included in the binrep config files. 
+It can be generated using the following command: 
+````bash
+openssl rand -base64 32
+````
 
 ## Internals
 
@@ -128,13 +188,6 @@ Signature is generated as follow:
 - sign the UTF-8 bytes with the private key and the signature_method
 - output the result to base64.
 
-#### Available hashing algorithm
-
-`SHA256`
-
-#### Available signature method
-
-`HMAC_SHA256` publisher & repository readers can agree on what key to use by using the key_id field.
 
 
 ## License
