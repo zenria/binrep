@@ -72,22 +72,6 @@ struct Opt {
     command: Command,
 }
 
-/// Usage
-///
-///
-/// binrep push artifact_name artifact_version files...
-/// binrep pull artifact_name latest output_dir
-/// binrep pull artifact_name artifact_version output_dir
-/// binrep ls
-/// binrep ls artifact_name
-/// binrep ls artifact_name/latest
-/// binrep ls artifact_name/version
-///
-/// config searched in
-///   ~/.binrep/config.sane
-///   /etc/binrep/config.sane
-/// or manually specified with -c eg
-///
 fn main() {
     env_logger::init();
     let opt = Opt::from_args();
