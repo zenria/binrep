@@ -149,7 +149,6 @@ Tha basic structure is:
 ROOT/:
   - actifacts.sane
   - artifact1/:
-    - latest.sane
     - versions.sane
     - 1.0/:
       - artifact.sane
