@@ -57,42 +57,39 @@ Each artifact version can contains arbritraty number of files.
 Configuration can be provided with the `-c` or `--config` flag. If no configuration is provided, binrep will 
 search in `~/.binrep/confif.sane` and `/etc/binrep/config.sane`.
 
-### Format of config file
+### Configuration
 
-Config file for pulling artifacts
+Sample config file for pulling artifacts:
 ```sane
-backend = {
-    type = "file",
-    root = "/mnt/test-repo"
-}
+[backend]
+type = "file"
+root = "/mnt/test-repo"
 
 # List available keys for HMAC SHA256 signature method
-hmac_keys = {
-    "test-key" = "okIy37MEOC8yCkCEcMbyVCYEWNZT7IV5wr+qQxFlYR0="
-}
+[hmac_keys]
+"test-key" = "okIy37MEOC8yCkCEcMbyVCYEWNZT7IV5wr+qQxFlYR0="
+
 ```
 
 For publishing artifact additional config is needed: 
 ```sane
-backend = {
-    type = "file",
-    root = "./test-repo"
-}
+[backend]
+type = "file",
+root = "./test-repo"
 
 # List available keys for HMAC SHA256 signature method
-hmac_keys = {
-    "test-key" = "okIy37MEOC8yCkCEcMbyVCYEWNZT7IV5wr+qQxFlYR0="
-}
+[hmac_keys]
+"test-key" = "okIy37MEOC8yCkCEcMbyVCYEWNZT7IV5wr+qQxFlYR0="
 
 # Parameters used when publishing artifacts
-publish_parameters = {
-    # Signature method when publishing
-    signature_method = "HMAC_SHA256",
-    # Checksum method when publishing
-    checksum_method = "SHA256",
-    # Reference to HMAC SHA256 key when publishing
-    hmac_signing_key = "test-key",
-}
+[publish_parameters]
+# Signature method when publishing
+signature_method = "HMAC_SHA256",
+# Checksum method when publishing
+checksum_method = "SHA256",
+# Reference to HMAC SHA256 key when publishing
+hmac_signing_key = "test-key",
+
 ```
 ### Available hashing algorithm
 
@@ -118,6 +115,24 @@ openssl rand -base64 48
 # for HMAC-SHA512
 openssl rand -base64 64
 ````
+
+### AWS S3 configuration
+
+Binrep uses the same credentials as aws cli commands. If nothing configured it will get the default credentials.
+
+Backend sample section: 
+```sane
+[backend]
+type = "s3"
+bucket = "my-binrep-artifacts"
+# region is mandatory as it determines the aws api gateway
+region = "eu-west-3"
+# optional profile name
+profile = "gitlabci"    
+```
+
+
+ 
 
 ## Internals
 

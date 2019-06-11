@@ -31,12 +31,12 @@ struct NoVersionMatching;
 impl Binrep {
     pub fn new<P: AsRef<Path>>(config_path: Option<P>) -> Result<Binrep, Error> {
         let config = resolve_config(config_path)?;
-        Ok(Self::from_config(config))
+        Self::from_config(config)
     }
 
-    pub fn from_config(config: Config) -> Binrep {
-        let repository = Repository::new(config);
-        Self { repository }
+    pub fn from_config(config: Config) -> Result<Binrep, Error> {
+        let repository = Repository::new(config)?;
+        Ok(Self { repository })
     }
 
     pub fn list_artifacts(&self) -> Result<Artifacts, Error> {
@@ -211,7 +211,7 @@ mod test {
 
     #[test]
     fn test_binrep() {
-        let br = Binrep::from_config(Config::create_file_test_config());
+        let br = Binrep::from_config(Config::create_file_test_config()).unwrap();
         let v1 = Version::parse("1.0.0").unwrap();
         let v12 = Version::parse("1.2.0").unwrap();
         let v2 = Version::parse("2.0.0").unwrap();

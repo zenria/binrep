@@ -1,6 +1,7 @@
 use crate::file_utils;
 use crate::metadata::{ChecksumMethod, SignatureMethod};
 use failure::{Error, Fail};
+use rusoto_core::Region;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -19,7 +20,22 @@ pub enum BackendType {
 pub struct Backend {
     #[serde(rename = "type")]
     pub backend_type: BackendType,
+    #[serde(flatten)]
+    pub file_backend_opt: Option<FileBackendOpt>,
+    #[serde(flatten)]
+    pub s3_backend_opt: Option<S3BackendOpt>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FileBackendOpt {
     pub root: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct S3BackendOpt {
+    pub bucket: String,
+    pub region: Region,
+    pub profile: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -64,7 +80,10 @@ impl Config {
         let dir = tempfile::tempdir().unwrap();
         let backend = Backend {
             backend_type: BackendType::File,
-            root: dir.into_path().to_string_lossy().into(),
+            file_backend_opt: Some(FileBackendOpt {
+                root: dir.into_path().to_string_lossy().into(),
+            }),
+            s3_backend_opt: None,
         };
         let mut hmac_keys = HashMap::new();
         hmac_keys.insert(
@@ -91,5 +110,6 @@ mod test {
     fn parse_sample_config() {
         let config = super::Config::read_from_file("config.sane").unwrap();
         config.get_publish_algorithm().unwrap();
+        super::Config::read_from_file("config-s3.sane").unwrap();
     }
 }

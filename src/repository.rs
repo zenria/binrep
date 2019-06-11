@@ -25,7 +25,7 @@ pub struct Repository {
 }
 
 #[derive(Debug, Fail)]
-enum RepositoryError {
+pub enum RepositoryError {
     #[fail(display = "Wrong artifact naming, only alphanumeric characters and -_. are allowed")]
     ArtifactNameError,
     #[fail(display = "Artifact version already exists")]
@@ -36,6 +36,8 @@ enum RepositoryError {
     WrongFileChecksum(String),
     #[fail(display = "Destination file already exists {}", _0)]
     DestinationFileAlreadyExists(String),
+    #[fail(display = "File backend root is missing")]
+    MissingFileBackendRoot,
 }
 
 fn validate_artifact_name(name: &str) -> Result<(), RepositoryError> {
@@ -52,13 +54,20 @@ fn validate_artifact_name(name: &str) -> Result<(), RepositoryError> {
 }
 
 impl Repository {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config) -> Result<Self, RepositoryError> {
         // Construct the backend
         let backend = match &config.backend.backend_type {
-            BackendType::File => Box::new(FileBackend::new(&config.backend.root)),
+            BackendType::File => Box::new(FileBackend::new(
+                &config
+                    .backend
+                    .file_backend_opt
+                    .as_ref()
+                    .ok_or(RepositoryError::MissingFileBackendRoot)?
+                    .root,
+            )),
             BackendType::S3 => unimplemented!(),
         };
-        Self { backend, config }
+        Ok(Self { backend, config })
     }
 
     /// Initialize the repository, do nothing if the repository is already initialized.
@@ -347,7 +356,7 @@ mod test {
     fn integration_test_file_backend() {
         let config = Config::read_from_file("./test/test-file-backend-config.sane").unwrap();
         clean_file_bck_dir();
-        let repo = super::Repository::new(config);
+        let repo = super::Repository::new(config).unwrap();
         repo.push_artifact(
             "binrep",
             &Version::parse("1.2.3-alpha").unwrap(),

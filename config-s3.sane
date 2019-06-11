@@ -1,6 +1,10 @@
 [backend]
-type = "file"
-root = "./test-repo"
+type = "s3"
+bucket = "my-binrep-artifacts"
+# region is mandatory as it determines the aws api gateway
+region = "eu-west-3"
+# optional profile name
+profile = "gitlabci"
 
 # List available keys for HMAC SHA256 signature method
 [hmac_keys]

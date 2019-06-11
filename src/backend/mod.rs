@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 pub mod file_backend;
+pub mod s3_backend;
 
 pub trait Backend {
     /// read a text file from specified path
