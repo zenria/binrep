@@ -53,7 +53,7 @@ impl HmacShaSignature {
 
 impl Signer for HmacShaSignature {
     fn sign(&self, msg: &[u8]) -> Result<Vec<u8>, Error> {
-        let s_key = hmac::SigningKey::new(&digest::SHA256, &self.key);
+        let s_key = hmac::SigningKey::new(self.hmac_signature_method.digest_algorithm(), &self.key);
         let signature = hmac::sign(&s_key, msg);
         Ok(Vec::from(signature.as_ref()))
     }
@@ -69,7 +69,8 @@ impl Signer for HmacShaSignature {
 
 impl Verifier for HmacShaSignature {
     fn verify(&self, msg: &[u8], signature: Vec<u8>) -> bool {
-        let v_key = hmac::VerificationKey::new(&digest::SHA256, &self.key);
+        let v_key =
+            hmac::VerificationKey::new(self.hmac_signature_method.digest_algorithm(), &self.key);
         match hmac::verify(&v_key, msg, &signature) {
             Ok(_) => true,
             Err(_) => false,
