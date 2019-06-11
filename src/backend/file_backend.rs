@@ -80,6 +80,7 @@ mod test {
     use std::fs::File;
     use std::io::Read;
     use std::path::{Path, PathBuf};
+    use tempfile::tempdir;
 
     #[test]
     fn test_get_path() {
@@ -104,11 +105,8 @@ mod test {
     #[test]
     #[allow(unused_must_use)]
     fn test_backend() {
-        std::fs::remove_dir_all("./test-file-backend");
-        let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(30).collect();
-        let mut root = String::from("./test-file-backend/");
-        root.push_str(&rand_string);
-        let bck = super::FileBackend::new(&root);
+        let root = tempdir().unwrap();
+        let bck = super::FileBackend::new(&root.into_path().to_string_lossy());
         let data = "This is some data";
         bck.create_file("foo/bar/some.txt", data.to_string())
             .unwrap();
@@ -128,16 +126,14 @@ mod test {
             bck.read_file("/foo2/bar/othername.toml").unwrap(),
         );
 
-        bck.pull_file(
-            "/foo2/bar/othername.toml",
-            PathBuf::from("./test-file-backend/othername.toml"),
-        )
-        .unwrap();
-        bck.pull_file(
-            "/foo2/bar/othername.toml",
-            PathBuf::from("./test-file-backend/othername.toml"),
-        )
-        .unwrap();
+        let dest_dir = tempdir().unwrap();
+        let mut dest_file = PathBuf::from(dest_dir.path());
+        dest_file.push("othername.toml");
+
+        bck.pull_file("/foo2/bar/othername.toml", dest_file.clone())
+            .unwrap();
+        bck.pull_file("/foo2/bar/othername.toml", dest_file.clone())
+            .unwrap();
     }
 
     fn assert_file_equals<A: AsRef<Path>>(file: A, data: String) {

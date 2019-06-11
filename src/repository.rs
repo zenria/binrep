@@ -363,17 +363,12 @@ mod test {
 
     #[test]
     fn integration_test_file_backend() {
-        let config = Config::read_from_file("./test/test-file-backend-config.sane").unwrap();
-        clean_file_bck_dir();
+        let config = Config::create_file_test_config();
         let repo = super::Repository::new(config).unwrap();
         repo.push_artifact(
             "binrep",
             &Version::parse("1.2.3-alpha").unwrap(),
-            &vec![
-                "Cargo.toml",
-                "./src/lib.rs",
-                "test/test-file-backend-config.sane",
-            ],
+            &vec!["Cargo.toml", "./src/lib.rs"],
         )
         .unwrap();
         repo.push_artifact(
@@ -405,10 +400,12 @@ mod test {
         repo.get_artifact("binrep", &Version::parse("1.2.1").unwrap())
             .unwrap();
 
+        let pull_dir = tempfile::tempdir().unwrap();
+
         repo.pull_artifact(
             "binrep",
             &Version::parse("1.2.1").unwrap(),
-            "./test-file-backend-repo-pull",
+            pull_dir.path(),
             false,
         )
         .unwrap();
@@ -416,22 +413,17 @@ mod test {
             .pull_artifact(
                 "binrep",
                 &Version::parse("1.2.1").unwrap(),
-                "./test-file-backend-repo-pull",
+                pull_dir.path(),
                 false,
             )
             .is_err());
         repo.pull_artifact(
             "binrep",
             &Version::parse("1.2.1").unwrap(),
-            "./test-file-backend-repo-pull",
+            pull_dir.path(),
             true,
         )
         .unwrap();
     }
 
-    #[allow(unused_must_use)]
-    fn clean_file_bck_dir() {
-        std::fs::remove_dir_all("./test-file-backend-repo");
-        std::fs::remove_dir_all("./test-file-backend-repo-pull");
-    }
 }

@@ -88,12 +88,12 @@ impl Config {
         let mut hmac_keys = HashMap::new();
         hmac_keys.insert(
             "test".to_string(),
-            "qyZTHSD1/k26PLaLayNGFG6AkOUTtbHSKgXwS+M7W0o=".to_string(),
+            "Ia5m317AYNN9V6Xz8ISm/NqfvHUrTJIN7OxGtWezx9eG/sA/RWT/xP/VwZ8ELaQ3".to_string(),
         );
 
         let publish_parameters = Some(PublishParameters {
-            signature_method: SignatureMethod::HmacSha256,
-            checksum_method: ChecksumMethod::Sha256,
+            signature_method: SignatureMethod::HmacSha384,
+            checksum_method: ChecksumMethod::Sha384,
             hmac_signing_key: Some("test".to_string()),
         });
         Config {
