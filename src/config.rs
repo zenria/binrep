@@ -34,7 +34,7 @@ pub struct FileBackendOpt {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct S3BackendOpt {
     pub bucket: String,
-    pub region: Region,
+    pub region: String,
     pub profile: Option<String>,
 }
 
@@ -110,6 +110,10 @@ mod test {
     fn parse_sample_config() {
         let config = super::Config::read_from_file("config.sane").unwrap();
         config.get_publish_algorithm().unwrap();
-        super::Config::read_from_file("config-s3.sane").unwrap();
+        super::Config::read_from_file("config-s3.sane")
+            .unwrap()
+            .backend
+            .s3_backend_opt
+            .unwrap();
     }
 }

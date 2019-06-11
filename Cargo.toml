@@ -21,6 +21,8 @@ chrono="0.4"
 rusoto_s3="0.39.0"
 rusoto_core="0.39.0"
 rusoto_credential = "0.39.0"
+futures-fs = "0.0.5"
+env_logger = "0.6.1"
 
 [[bin]]
 name="binrep"

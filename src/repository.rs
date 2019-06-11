@@ -1,4 +1,5 @@
 use crate::backend::file_backend::FileBackend;
+use crate::backend::s3_backend::S3Backend;
 use crate::backend::Backend;
 use crate::config::{BackendType, Config};
 use crate::crypto::Signer;
@@ -20,7 +21,7 @@ use crate::path;
 
 /// Low level API to the repository
 pub struct Repository {
-    backend: Box<Backend>,
+    backend: Box<dyn Backend>,
     config: Config,
 }
 
@@ -38,6 +39,8 @@ pub enum RepositoryError {
     DestinationFileAlreadyExists(String),
     #[fail(display = "File backend root is missing")]
     MissingFileBackendRoot,
+    #[fail(display = "Missing S3 configuration")]
+    MissingS3Configuration,
 }
 
 fn validate_artifact_name(name: &str) -> Result<(), RepositoryError> {
@@ -54,9 +57,9 @@ fn validate_artifact_name(name: &str) -> Result<(), RepositoryError> {
 }
 
 impl Repository {
-    pub fn new(config: Config) -> Result<Self, RepositoryError> {
+    pub fn new(config: Config) -> Result<Self, Error> {
         // Construct the backend
-        let backend = match &config.backend.backend_type {
+        let backend: Box<dyn Backend> = match &config.backend.backend_type {
             BackendType::File => Box::new(FileBackend::new(
                 &config
                     .backend
@@ -65,7 +68,13 @@ impl Repository {
                     .ok_or(RepositoryError::MissingFileBackendRoot)?
                     .root,
             )),
-            BackendType::S3 => unimplemented!(),
+            BackendType::S3 => Box::new(S3Backend::new(
+                config
+                    .backend
+                    .s3_backend_opt
+                    .as_ref()
+                    .ok_or(RepositoryError::MissingS3Configuration)?,
+            )?),
         };
         Ok(Self { backend, config })
     }

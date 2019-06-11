@@ -50,9 +50,9 @@ pub struct File {
 pub enum SignatureMethod {
     #[serde(rename = "HMAC_SHA256")]
     HmacSha256,
-    #[serde(rename = "HMAC_SHA256")]
+    #[serde(rename = "HMAC_SHA384")]
     HmacSha384,
-    #[serde(rename = "HMAC_SHA256")]
+    #[serde(rename = "HMAC_SHA512")]
     HmacSha512,
 }
 

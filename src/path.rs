@@ -1,6 +1,6 @@
 #[inline(always)]
 pub fn artifacts() -> &'static str {
-    "/artifacts.sane"
+    "artifacts.sane"
 }
 pub mod artifact {
     use semver::Version;

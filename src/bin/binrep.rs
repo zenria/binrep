@@ -89,6 +89,7 @@ struct Opt {
 /// or manually specified with -c eg
 ///
 fn main() {
+    env_logger::init();
     let opt = Opt::from_args();
     if let Err(e) = _main(opt) {
         eprintln!("{}", e);
