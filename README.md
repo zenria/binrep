@@ -33,7 +33,7 @@ binrep pull binrep-bin latest ~/.bin
 binrep pull binrep-bin "^1.0" ~/.bin
 
 # keep the binaries in sync with the requirement ; download only binaries if needed
-# metadata are kept in the destination directoy in a file named ".binrep-bin.sane"
+# metadata are kept in the destination directoy in a file named ".binrep-bin_sync.sane"
 # this command is typically used for continuous delivery
 binrep sync binrep-bin latest ~/.bin
 # will exec the given command if a new version has been successfully pulled
