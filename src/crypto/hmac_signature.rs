@@ -59,7 +59,7 @@ impl Signer for HmacShaSignature {
     }
 
     fn signature_method(&self) -> SignatureMethod {
-        SignatureMethod::HmacSha256
+        self.signature_method
     }
 
     fn key_id(&self) -> String {
