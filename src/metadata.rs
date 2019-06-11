@@ -2,6 +2,7 @@ use semver::Version;
 use serde::Deserialize;
 use serde::Serialize;
 use std::convert::TryFrom;
+use std::fmt;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Artifacts {
@@ -67,4 +68,14 @@ pub struct Artifact {
     pub version: Version,
     pub signature: Signature,
     pub files: Vec<File>,
+}
+
+impl fmt::Display for Artifact {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} - {}", self.version, self.signature.signature)?;
+        for file in &self.files {
+            write!(f, "\n  {} - {}", file.name, file.checksum)?;
+        }
+        Ok(())
+    }
 }

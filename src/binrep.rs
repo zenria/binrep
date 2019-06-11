@@ -20,8 +20,8 @@ pub enum SyncStatus {
 
 #[derive(Debug)]
 pub struct SyncResult {
-    artifact: Artifact,
-    status: SyncStatus,
+    pub artifact: Artifact,
+    pub status: SyncStatus,
 }
 
 #[derive(Fail, Debug)]
@@ -55,6 +55,15 @@ impl Binrep {
             .into_iter()
             .filter(|v| version_req.matches(v))
             .collect())
+    }
+
+    pub fn artifact(
+        &self,
+        artifact_name: &str,
+        artifact_version: &Version,
+    ) -> Result<Artifact, Error> {
+        self.repository
+            .get_artifact(artifact_name, artifact_version)
     }
 
     pub fn push<P: AsRef<Path>>(
