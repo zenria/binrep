@@ -6,10 +6,12 @@
 #[macro_use]
 extern crate log;
 
-pub mod backend;
+mod backend;
 pub mod config;
 pub mod config_resolver;
 mod crypto;
 pub mod metadata;
 mod path;
 mod repository;
+
+pub mod binrep;

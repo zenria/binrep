@@ -1,6 +1,6 @@
 use crate::config::Config;
 use failure::{Error, Fail};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const DEFAULT_CONFIG_LOCATION: &[&str] = &["~/.binrep/config.sane", "/etc/binrep/config.sane"];
 
@@ -8,8 +8,9 @@ const DEFAULT_CONFIG_LOCATION: &[&str] = &["~/.binrep/config.sane", "/etc/binrep
 #[fail(display = "No config file provided nor config file found in default location")]
 pub struct NoConfigFileError;
 
-pub fn resolve_config(config: Option<PathBuf>) -> Result<Config, Error> {
+pub fn resolve_config<P: AsRef<Path>>(config: Option<P>) -> Result<Config, Error> {
     config
+        .map(|path| PathBuf::from(path.as_ref()))
         .into_iter()
         .chain(
             DEFAULT_CONFIG_LOCATION
