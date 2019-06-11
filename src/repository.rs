@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use tempfile::{tempdir, TempDir};
 
 use crate::crypto;
+use crate::file_utils;
 use crate::metadata;
 use crate::path;
 
@@ -284,12 +285,8 @@ impl Repository {
         let mut dest_path = PathBuf::new();
         dest_path.push(destination_dir);
 
-        if let Err(e) = std::fs::create_dir_all(&dest_path) {
-            match e.kind() {
-                ErrorKind::AlreadyExists => (), // just ignore
-                _ => Err(e)?,
-            }
-        }
+        file_utils::mkdirs(&dest_path)?;
+
         // check file presence
         let dest_file_paths =
             artifact

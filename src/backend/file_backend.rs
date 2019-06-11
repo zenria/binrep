@@ -1,4 +1,5 @@
 use crate::backend::Backend;
+use crate::file_utils;
 use failure::Error;
 use failure::Fail;
 use std::fs::File;
@@ -8,12 +9,6 @@ use std::path::PathBuf;
 
 pub struct FileBackend {
     root: PathBuf,
-}
-
-#[derive(Fail, Debug)]
-pub enum FileBackendError {
-    #[fail(display = "Not a directory: {} ", _0)]
-    NotADirectory(String),
 }
 
 impl FileBackend {
@@ -27,18 +22,10 @@ impl FileBackend {
         // check dir existence, create if is does not exists, throw an error
         // if the dir is not a dir ;)
         if let Some(dir) = file_path.parent() {
-            if let Ok(dir_metadata) = std::fs::metadata(dir) {
-                if !dir_metadata.is_dir() {
-                    Err(FileBackendError::NotADirectory(
-                        dir.to_string_lossy().to_string(),
-                    ))?
-                }
-            } else {
-                std::fs::create_dir_all(dir)?
-            }
+            file_utils::mkdirs(dir)?;
         } else {
             // No parent what is root ????
-            Err(FileBackendError::NotADirectory(
+            Err(file_utils::PathIsNotADirectoryError(
                 self.root.to_string_lossy().to_string(),
             ))?
         }
