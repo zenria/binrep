@@ -1,5 +1,8 @@
 use failure::{Error, Fail};
-use std::io::ErrorKind;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use std::fs::File;
+use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
@@ -24,6 +27,14 @@ pub fn mkdirs<P: AsRef<Path>>(dir: P) -> Result<(), Error> {
         }
     }
     Ok(())
+}
+
+pub fn read_sane_from_file<P: AsRef<Path>, S: DeserializeOwned>(file: P) -> Result<S, Error> {
+    let mut file = File::open(&file)?;
+    let mut s = String::new();
+    file.read_to_string(&mut s)?;
+    // Parse config file
+    Ok(sane::from_str(&s)?)
 }
 
 #[cfg(test)]

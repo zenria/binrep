@@ -1,3 +1,4 @@
+use crate::file_utils;
 use crate::metadata::{ChecksumMethod, SignatureMethod};
 use failure::{Error, Fail};
 use serde::{Deserialize, Serialize};
@@ -56,12 +57,7 @@ pub enum ConfigValidationError {
 
 impl Config {
     pub fn read_from_file<P: AsRef<Path>>(file: P) -> Result<Config, Error> {
-        let mut config_file = File::open(&file)?;
-        let mut config = String::new();
-        config_file.read_to_string(&mut config)?;
-
-        // Parse config file
-        Ok(sane::from_str(&config)?)
+        file_utils::read_sane_from_file(file)
     }
 }
 
