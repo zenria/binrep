@@ -15,8 +15,7 @@ release:
     - tags
   artifacts:
     paths:
-      - target/release/http-requester
-      - target/release/jetty-scoop-warmup
+      - target/release/binrep
   script:
     - cargo build --release --all --all-targets --color=always
 
