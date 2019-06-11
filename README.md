@@ -50,12 +50,17 @@ Version needs to follow semver 2.0 https://semver.org/spec/v2.0.0.html format.
 
 Each artifact version can contains arbritraty number of files. 
 
+## Configuration
 
-## Metadata file format
+TODO
+
+## Internals
+
+### Metadata file format
 
 Metadata file format follows the SANE file format: https://github.com/z0mbie42/sane
 
-## Repository structure
+### Repository structure
 
 ```ROOT`` always represent the base folder/url of the repository.
 
@@ -75,7 +80,7 @@ ROOT/:
     ...
 ```
 
-### artifacts.sane
+#### artifacts.sane
 
 List available artifacts by name:
 ```sane
@@ -83,14 +88,14 @@ artifacts=["artifact1", "artifact2"]
 ``` 
 It should directly reflects the list of subdirectories inside the repository ```ROOT```. This files exists to be able to use protocols that does not supports subdirectories listing (eg: HTTP).
 
-### latest.sane metatada
+#### latest.sane metatada
 
 Contains the latest version:
 ```sane
 latest_version="1.2.3"
 ```
 
-### versions.sane
+#### versions.sane
 
 Contains the list of all available versions:
 ```sane
@@ -98,7 +103,7 @@ versions=["1.0","1.1","1.2.3"]
 ```
 It should directly reflects the list of subdirectories inside the repository an artifact directory. This files exists to be able to use network protocols that does not supports subdirectories listing (eg: HTTP).
 
-### artifact.sane metadata
+#### artifact.sane metadata
 
 Contains the list of binary files for the version with checksums and signatures.
 ```sane
@@ -123,15 +128,11 @@ Signature is generated as follow:
 - sign the UTF-8 bytes with the private key and the signature_method
 - output the result to base64.
 
-### Optional .json metadata files
-
-For maximum interoperability sane metadata files should be mirrored with json files following the same structure
-
-### Available hashing algorithm
+#### Available hashing algorithm
 
 `SHA256`
 
-### Available signature method
+#### Available signature method
 
 `HMAC_SHA256` publisher & repository readers can agree on what key to use by using the key_id field.
 
