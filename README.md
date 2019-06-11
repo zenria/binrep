@@ -8,9 +8,37 @@ Binrep is a repository manager of versioned binary artifacts. It supports
 storing the repository on local or network filesystem as well as AWS S3 backend. 
 Binrep can be used to safely distribute binaries produced by a CI/CD build system. 
 
+It is typically used to distribute compiled binaries, fat jars, zip files regardless of target
+system. It's purpose is not to replace traditional package repositories nor docker registry but to
+offer an alternative when using those is not convenient.
+
 ## Status
 
-Binrep is still a work in progress. It is ready for testing use 
+Binrep is still a work in progress.  
+
+## Example 
+
+```bash
+# push the binrep-bin artifact v1.0.0 to the repository containing the target/release/binrep binray file
+# directories are flattened
+binrep push binrep-bin 1.0.0 target/release/binrep
+
+# pull the binrep-bin files in the ~/.bin directory
+binrep pull binrep-bin 1.0.0 ~/.bin
+
+# latest version has a special meaning: it pulls the latest version according to semver.
+binrep pull binrep-bin latest ~/.bin
+
+# version can also be a requirement: https://docs.rs/semver/0.9.0/semver/#requirements
+binrep pull binrep-bin "^1.0" ~/.bin
+
+# keep the binaries in sync with the requirement ; download only binaries if needed
+# metadata are kept in the destination directoy in a file named ".binrep-bin.sane"
+# this command is typically used for continuous delivery
+binrep sync binrep-bin latest ~/.bin
+# will exec the given command if a new version has been successfully pulled
+binrep sync haproxy-config latest /etc/haproxy --exec "sudo service haproxy reload"
+```
 
 ## What is an artifact?
 
@@ -21,6 +49,7 @@ Artifact names must only contain alphanumeric characters and `_-.`.
 Version needs to follow semver 2.0 https://semver.org/spec/v2.0.0.html format. 
 
 Each artifact version can contains arbritraty number of files. 
+
 
 ## Metadata file format
 
