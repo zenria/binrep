@@ -39,7 +39,25 @@ impl Binrep {
         Self { repository }
     }
 
-    fn push<P: AsRef<Path>>(
+    pub fn list_artifacts(&self) -> Result<Artifacts, Error> {
+        self.repository.list_artifacts()
+    }
+
+    pub fn list_artifact_versions(
+        &self,
+        artifact_name: &str,
+        version_req: &VersionReq,
+    ) -> Result<Vec<Version>, Error> {
+        Ok(self
+            .repository
+            .list_artifact_versions(artifact_name)?
+            .versions
+            .into_iter()
+            .filter(|v| version_req.matches(v))
+            .collect())
+    }
+
+    pub fn push<P: AsRef<Path>>(
         &self,
         artifact_name: &str,
         artifact_version: &Version,

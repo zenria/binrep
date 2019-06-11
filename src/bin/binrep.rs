@@ -1,15 +1,19 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
-use binrep::config::Config;
 use failure::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use binrep::config_resolver;
+use binrep::binrep::Binrep;
+use semver::VersionReq;
+use std::fmt::Display;
 
 #[derive(StructOpt)]
 struct ListOptions {
-    path: Option<String>,
+    /// artifact name
+    artifact_name: Option<String>,
+    /// artifact version requirement
+    version_req: Option<String>,
 }
 
 #[derive(StructOpt)]
@@ -56,7 +60,32 @@ fn main() {
 }
 
 fn _main(opt: Opt) -> Result<(), Error> {
-    let config: Config = config_resolver::resolve_config(opt.config_file)?;
+    let binrep = Binrep::new(opt.config_file)?;
+    match opt.command {
+        // LIST----------
+        Command::List(opt) => match opt.artifact_name {
+            None => print_list(binrep.list_artifacts()?.artifacts),
+            Some(artifact_name) => print_list(
+                binrep
+                    .list_artifact_versions(&artifact_name, &parse_version_req(opt.version_req)?)?,
+            ),
+        },
 
+        _ => unimplemented!(),
+    }
     Ok(())
+}
+
+fn print_list<T: Display, I: IntoIterator<Item = T>>(collection: I) {
+    for item in collection {
+        println!("{}", item);
+    }
+}
+
+fn parse_version_req(input: Option<String>) -> Result<VersionReq, Error> {
+    Ok(match &input {
+        None => VersionReq::any(),
+        Some(v) if v == "latest" => VersionReq::any(),
+        Some(v) => VersionReq::parse(v)?,
+    })
 }
