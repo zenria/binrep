@@ -16,11 +16,6 @@ impl Artifacts {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct Latest {
-    pub latest_version: Version,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Versions {
     pub versions: Vec<Version>,
 }

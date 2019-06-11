@@ -2,9 +2,7 @@ use crate::backend::file_backend::FileBackend;
 use crate::backend::Backend;
 use crate::config::{BackendType, Config};
 use crate::crypto::Signer;
-use crate::metadata::{
-    Artifact, Artifacts, ChecksumMethod, Latest, Signature, SignatureMethod, Versions,
-};
+use crate::metadata::{Artifact, Artifacts, ChecksumMethod, Signature, SignatureMethod, Versions};
 use crate::path::artifacts;
 use core::borrow::Borrow;
 use failure::{Error, Fail};
@@ -105,15 +103,6 @@ impl Repository {
         )
     }
 
-    fn write_latest(&self, artifact_name: &str, version: &Version) -> Result<(), Error> {
-        self.backend.create_file(
-            &path::artifact::latest(artifact_name),
-            sane::to_string(&Latest {
-                latest_version: version.clone(),
-            })?,
-        )
-    }
-
     /// Initialize artifact repo, do nothing if the artifact repo is already initialized
     fn init_artifact(&self, artifact_name: &str) -> Result<Versions, Error> {
         validate_artifact_name(artifact_name)?;
@@ -146,13 +135,6 @@ impl Repository {
         Ok(sane::from_str::<Versions>(&self.backend.read_file(&path)?)?)
     }
 
-    pub fn latest_artifact_versions(&self, artifact_name: &str) -> Result<Version, Error> {
-        validate_artifact_name(artifact_name)?;
-
-        let path: String = path::artifact::latest(artifact_name);
-        Ok(sane::from_str::<Latest>(&self.backend.read_file(&path)?)?.latest_version)
-    }
-
     pub fn get_artifact(
         &self,
         artifact_name: &str,
@@ -179,13 +161,6 @@ impl Repository {
         if versions.versions.contains(&version) {
             Err(RepositoryError::ArtifactVersionAlreadyExists)?;
         }
-
-        let latest = versions
-            .versions
-            .iter()
-            .fold(true, |is_latest, existing_version| {
-                existing_version < version
-            });
 
         let publish_algorithm = self.config.get_publish_algorithm()?;
 
@@ -244,9 +219,6 @@ impl Repository {
         self.write_artifact(artifact_name, version, &artifact)?;
         versions.versions.push(version.clone());
         self.write_artifact_versions(artifact_name, &versions)?;
-        if latest {
-            self.write_latest(artifact_name, version)?;
-        }
 
         Ok(artifact)
     }
@@ -403,10 +375,6 @@ mod test {
         assert!(versions.contains(&Version::parse("1.2.1").unwrap()));
         assert!(versions.contains(&Version::parse("1.2.3-alpha").unwrap()));
 
-        assert_eq!(
-            Version::parse("1.2.3-alpha").unwrap(),
-            repo.latest_artifact_versions("binrep").unwrap()
-        );
         // cannot push twice the same version
         assert!(repo
             .push_artifact(

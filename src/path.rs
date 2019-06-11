@@ -9,10 +9,6 @@ pub mod artifact {
         vec![artifact_name, "/versions.sane"].into_iter().collect()
     }
     #[inline(always)]
-    pub fn latest(artifact_name: &str) -> String {
-        vec![artifact_name, "/latest.sane"].into_iter().collect()
-    }
-    #[inline(always)]
     pub fn artifact(artifact_name: &str, artifact_version: &Version) -> String {
         vec![
             artifact_name,

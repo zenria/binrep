@@ -67,26 +67,23 @@ impl Binrep {
     pub fn sync<P: AsRef<Path>>(
         &self,
         artifact_name: &str,
-        version_req: Option<&VersionReq>,
+        version_req: &VersionReq,
         destination_dir: P,
     ) -> Result<SyncResult, Error> {
         file_utils::mkdirs(&destination_dir)?;
 
-        let latest = match version_req {
-            None => self.repository.latest_artifact_versions(artifact_name)?,
-            Some(version_req) => {
-                let mut matching_versions: Vec<Version> = self
-                    .repository
-                    .list_artifact_versions(artifact_name)?
-                    .versions
-                    .into_iter()
-                    .filter(|version| version_req.matches(version))
-                    .collect();
-                matching_versions.sort();
-                match matching_versions.into_iter().last() {
-                    Some(max_matching_version) => max_matching_version,
-                    None => Err(NoVersionMatching)?,
-                }
+        let latest = {
+            let mut matching_versions: Vec<Version> = self
+                .repository
+                .list_artifact_versions(artifact_name)?
+                .versions
+                .into_iter()
+                .filter(|version| version_req.matches(version))
+                .collect();
+            matching_versions.sort();
+            match matching_versions.into_iter().last() {
+                Some(max_matching_version) => max_matching_version,
+                None => Err(NoVersionMatching)?,
             }
         };
 
@@ -196,40 +193,38 @@ mod test {
 
         let dest_sync = tempfile::tempdir().unwrap();
 
-        let sr = br.sync(ANAME, None, &dest_sync).unwrap();
+        let sr = br.sync(ANAME, &VersionReq::any(), &dest_sync).unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v1, sr.artifact.version);
 
-        let sr = br.sync(ANAME, None, &dest_sync).unwrap();
+        let sr = br.sync(ANAME, &VersionReq::any(), &dest_sync).unwrap();
         assert_eq!(SyncStatus::UpToDate, sr.status);
         assert_eq!(v1, sr.artifact.version);
 
         br.push(ANAME, &v12, &vec!["Cargo.toml"]).unwrap();
         br.push(ANAME, &v2, &vec!["Cargo.toml"]).unwrap();
 
-        let sr = br.sync(ANAME, None, &dest_sync).unwrap();
+        let sr = br.sync(ANAME, &VersionReq::any(), &dest_sync).unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v2, sr.artifact.version);
 
-        let sr = br.sync(ANAME, None, &dest_sync).unwrap();
+        let sr = br.sync(ANAME, &VersionReq::any(), &dest_sync).unwrap();
         assert_eq!(SyncStatus::UpToDate, sr.status);
         assert_eq!(v2, sr.artifact.version);
 
         // try downgrading to 1.2.x
         let sr = br
-            .sync(ANAME, Some(&VersionReq::parse("~1").unwrap()), &dest_sync)
+            .sync(ANAME, &VersionReq::parse("~1").unwrap(), &dest_sync)
             .unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v12, sr.artifact.version);
         let sr = br
-            .sync(ANAME, Some(&VersionReq::parse("~1").unwrap()), &dest_sync)
+            .sync(ANAME, &VersionReq::parse("~1").unwrap(), &dest_sync)
             .unwrap();
         assert_eq!(SyncStatus::UpToDate, sr.status);
         assert_eq!(v12, sr.artifact.version);
 
-        let sr = br
-            .sync(ANAME, Some(&VersionReq::parse("*").unwrap()), &dest_sync)
-            .unwrap();
+        let sr = br.sync(ANAME, &VersionReq::any(), &dest_sync).unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v2, sr.artifact.version);
     }

@@ -153,13 +153,6 @@ artifacts=["artifact1", "artifact2"]
 ``` 
 It should directly reflects the list of subdirectories inside the repository ```ROOT```. This files exists to be able to use protocols that does not supports subdirectories listing (eg: HTTP).
 
-#### latest.sane metatada
-
-Contains the latest version:
-```sane
-latest_version="1.2.3"
-```
-
 #### versions.sane
 
 Contains the list of all available versions:
