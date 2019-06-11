@@ -4,7 +4,7 @@ backend = {
 }
 
 # List available keys for HMAC SHA256 signature method
-hmac_sha256_keys = {
+hmac_keys = {
     "test-key" = "okIy37MEOC8yCkCEcMbyVCYEWNZT7IV5wr+qQxFlYR0="
 }
 
@@ -13,8 +13,8 @@ publish_parameters = {
     # Signature method when publishing
     signature_method = "HMAC_SHA256",
     # Checksum method when publishing
-    checksum_method = "SHA256",
+    checksum_method = "SHA512",
     # Reference to HMAC SHA256 key when publishing
-    hmac_sha256_signing_key = "test-key",
+    hmac_signing_key = "test-key",
 }
 

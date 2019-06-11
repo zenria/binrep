@@ -25,14 +25,14 @@ pub struct Backend {
 pub struct PublishParameters {
     pub signature_method: SignatureMethod,
     pub checksum_method: ChecksumMethod,
-    pub hmac_sha256_signing_key: Option<String>,
+    pub hmac_signing_key: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
     pub backend: Backend,
     pub publish_parameters: Option<PublishParameters>,
-    pub hmac_sha256_keys: Option<HashMap<String, String>>,
+    pub hmac_keys: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Fail)]
@@ -46,10 +46,10 @@ pub enum ConfigValidationError {
     #[fail(display = "no publish parameters")]
     NoPublishParameters,
     #[fail(
-        display = "found invalid hmac 256 key (needs to be 32 bytes long base64 encoded) {}",
+        display = "found invalid hmac key (needs to be 32/48/64 bytes long base64 encoded) {}",
         _0
     )]
-    InvalidHmac256Key(String),
+    InvalidHmacKey(String),
     #[fail(display = "invalid base 64 encoded string: {}", _0)]
     InvalidBase64Encoding(String),
 }

@@ -67,7 +67,7 @@ backend = {
 }
 
 # List available keys for HMAC SHA256 signature method
-hmac_sha256_keys = {
+hmac_keys = {
     "test-key" = "okIy37MEOC8yCkCEcMbyVCYEWNZT7IV5wr+qQxFlYR0="
 }
 ```
@@ -80,7 +80,7 @@ backend = {
 }
 
 # List available keys for HMAC SHA256 signature method
-hmac_sha256_keys = {
+hmac_keys = {
     "test-key" = "okIy37MEOC8yCkCEcMbyVCYEWNZT7IV5wr+qQxFlYR0="
 }
 
@@ -91,7 +91,7 @@ publish_parameters = {
     # Checksum method when publishing
     checksum_method = "SHA256",
     # Reference to HMAC SHA256 key when publishing
-    hmac_sha256_signing_key = "test-key",
+    hmac_signing_key = "test-key",
 }
 ```
 ### Available hashing algorithm
@@ -100,18 +100,23 @@ publish_parameters = {
 
 ### Available signature method
 
-`HMAC_SHA256` publisher & repository readers can agree on what key to use by using the key_id field.
+`HMAC_SHA256`, `HMAC_SHA384`, `HMAC_SHA512` publisher & repository readers can agree on what key to use by using the key_id field.
 
-### Shared HMAC-SHA256 secret key
+### Shared HMAC-SHAxxx secret key
 
 Artifacts are hashed and the associated metadata (filename+hash) is signed using some crypto signature algorithm. 
-Currently, binrep only supports HMAC-SHA256 signature, pull & push clients must share a secret key to verify metadata
+Currently, binrep only supports HMAC-SHAxxx signature, pull & push clients must share a secret key to verify metadata
 integrity. The signing key has an id thus, multiple keys can be configured.
 
-The key consists of 32 random bytes. It must be base64 encoded to be included in the binrep config files. 
+The key consists of 32/48/64 random bytes. It must be base64 encoded to be included in the binrep config files. 
 It can be generated using the following command: 
 ````bash
+# for HMAC-SHA256
 openssl rand -base64 32
+# for HMAC-SHA384
+openssl rand -base64 48
+# for HMAC-SHA512
+openssl rand -base64 64
 ````
 
 ## Internals

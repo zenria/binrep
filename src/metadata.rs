@@ -50,10 +50,14 @@ pub struct File {
     pub checksum_method: ChecksumMethod,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Copy)]
 pub enum SignatureMethod {
     #[serde(rename = "HMAC_SHA256")]
     HmacSha256,
+    #[serde(rename = "HMAC_SHA256")]
+    HmacSha384,
+    #[serde(rename = "HMAC_SHA256")]
+    HmacSha512,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]

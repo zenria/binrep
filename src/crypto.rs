@@ -20,18 +20,50 @@ pub trait Verifier {
     fn verify(&self, msg: &[u8], signature: Vec<u8>) -> bool;
 }
 
-pub struct HmacSha256Signature {
+pub struct HmacShaSignature {
+    hmac_signature_method: HmacSignatureMethod,
+    signature_method: SignatureMethod,
     key: Vec<u8>,
     key_id: String,
 }
 
-impl HmacSha256Signature {
-    pub fn new(key: Vec<u8>, key_id: String) -> Self {
-        Self { key, key_id }
+#[derive(Copy, Clone)]
+struct HmacSignatureMethod(&'static digest::Algorithm);
+
+impl HmacSignatureMethod {
+    fn new(signature_method: &SignatureMethod) -> Self {
+        match signature_method {
+            SignatureMethod::HmacSha256 => Self(&digest::SHA256),
+            SignatureMethod::HmacSha384 => Self(&digest::SHA384),
+            SignatureMethod::HmacSha512 => Self(&digest::SHA512),
+        }
+    }
+    pub(crate) fn digest_algorithm(&self) -> &'static digest::Algorithm {
+        self.0
+    }
+
+    pub(crate) fn key_len(&self) -> usize {
+        self.digest_algorithm().output_len
     }
 }
 
-impl Signer for HmacSha256Signature {
+impl HmacShaSignature {
+    fn new(
+        hmac_signature_method: HmacSignatureMethod,
+        signature_method: &SignatureMethod,
+        key: Vec<u8>,
+        key_id: String,
+    ) -> Self {
+        Self {
+            hmac_signature_method,
+            signature_method: *signature_method,
+            key,
+            key_id,
+        }
+    }
+}
+
+impl Signer for HmacShaSignature {
     fn sign(&self, msg: &[u8]) -> Result<Vec<u8>, Error> {
         let s_key = hmac::SigningKey::new(&digest::SHA256, &self.key);
         let signature = hmac::sign(&s_key, msg);
@@ -47,7 +79,7 @@ impl Signer for HmacSha256Signature {
     }
 }
 
-impl Verifier for HmacSha256Signature {
+impl Verifier for HmacShaSignature {
     fn verify(&self, msg: &[u8], signature: Vec<u8>) -> bool {
         let v_key = hmac::VerificationKey::new(&digest::SHA256, &self.key);
         match hmac::verify(&v_key, msg, &signature) {
@@ -111,20 +143,14 @@ impl Config {
         key_id: &str,
     ) -> Result<Box<Verifier>, ConfigValidationError> {
         match signature_method {
-            SignatureMethod::HmacSha256 => {
-                let keys = self
-                    .hmac_sha256_keys
-                    .as_ref()
-                    .ok_or(ConfigValidationError::NoHmacKeysConfigured)?;
-                let key =
-                    keys.get(key_id)
-                        .ok_or(ConfigValidationError::HmacSigningKeyNotFound {
-                            key_id: key_id.to_string(),
-                        })?;
-                let decoded_key = base64::decode(key)
-                    .map_err(|e| ConfigValidationError::InvalidBase64Encoding(key.clone()))?;
-                Ok(Box::new(HmacSha256Signature::new(
-                    decoded_key,
+            SignatureMethod::HmacSha256
+            | SignatureMethod::HmacSha384
+            | SignatureMethod::HmacSha512 => {
+                let hmac_signature_method = HmacSignatureMethod::new(signature_method);
+                Ok(Box::new(HmacShaSignature::new(
+                    hmac_signature_method,
+                    signature_method,
+                    self.get_key_bytes(key_id, &hmac_signature_method)?,
                     key_id.to_string(),
                 )))
             }
@@ -138,30 +164,40 @@ impl Config {
         // Signer means publish parameters are mandatory:
 
         match publish_parameters.signature_method {
-            SignatureMethod::HmacSha256 => {
-                Ok(Box::new(self.get_hmac_sha256_signer(publish_parameters)?))
+            SignatureMethod::HmacSha256
+            | SignatureMethod::HmacSha384
+            | SignatureMethod::HmacSha512 => {
+                Ok(Box::new(self.get_hmac_signer(publish_parameters)?))
             }
         }
     }
 
-    fn get_hmac_sha256_signer(
+    fn get_hmac_signer(
         &self,
         publish_parameters: &PublishParameters,
-    ) -> Result<HmacSha256Signature, ConfigValidationError> {
-        // OMFG this code is shitty but shall be valid since we previously validated publish_parameters
-
-        match &publish_parameters.hmac_sha256_signing_key {
+    ) -> Result<HmacShaSignature, ConfigValidationError> {
+        match &publish_parameters.hmac_signing_key {
             None => Err(ConfigValidationError::NoHmacKeysConfigured),
-            Some(key_id) => Ok(HmacSha256Signature::new(
-                self.get_key_bytes(key_id)?,
-                key_id.clone(),
-            )),
+            Some(key_id) => {
+                let hmac_signature_method =
+                    HmacSignatureMethod::new(&publish_parameters.signature_method);
+                Ok(HmacShaSignature::new(
+                    hmac_signature_method,
+                    &publish_parameters.signature_method,
+                    self.get_key_bytes(key_id, &hmac_signature_method)?,
+                    key_id.clone(),
+                ))
+            }
         }
     }
-    fn get_key_bytes(&self, key_id: &str) -> Result<Vec<u8>, ConfigValidationError> {
+    fn get_key_bytes(
+        &self,
+        key_id: &str,
+        hmac_signature_method: &HmacSignatureMethod,
+    ) -> Result<Vec<u8>, ConfigValidationError> {
         // get hmac signing keys
         let keys = self
-            .hmac_sha256_keys
+            .hmac_keys
             .as_ref()
             .ok_or(ConfigValidationError::NoHmacKeysConfigured)?;
 
@@ -179,8 +215,8 @@ impl Config {
             })
             .and_then(|key_bytes| {
                 // validate key length
-                if key_bytes.len() != 32 {
-                    Err(ConfigValidationError::InvalidHmac256Key(key.clone()))
+                if key_bytes.len() != hmac_signature_method.key_len() {
+                    Err(ConfigValidationError::InvalidHmacKey(key.clone()))
                 } else {
                     Ok(key_bytes)
                 }
