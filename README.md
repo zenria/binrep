@@ -96,7 +96,7 @@ publish_parameters = {
 ```
 ### Available hashing algorithm
 
-`SHA256`
+`SHA256`, `SHA384`, `SHA512`
 
 ### Available signature method
 

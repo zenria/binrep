@@ -84,6 +84,8 @@ impl ChecksumMethod {
     pub(crate) fn algorithm(&self) -> &'static digest::Algorithm {
         match self {
             ChecksumMethod::Sha256 => &digest::SHA256,
+            ChecksumMethod::Sha384 => &digest::SHA384,
+            ChecksumMethod::Sha512 => &digest::SHA512,
         }
     }
 }

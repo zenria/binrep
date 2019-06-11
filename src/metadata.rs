@@ -37,6 +37,10 @@ impl Versions {
 pub enum ChecksumMethod {
     #[serde(rename = "SHA256")]
     Sha256,
+    #[serde(rename = "SHA384")]
+    Sha384,
+    #[serde(rename = "SHA512")]
+    Sha512,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
