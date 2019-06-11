@@ -59,6 +59,30 @@ impl Config {
     pub fn read_from_file<P: AsRef<Path>>(file: P) -> Result<Config, Error> {
         file_utils::read_sane_from_file(file)
     }
+    #[cfg(test)]
+    pub fn create_file_test_config() -> Config {
+        let dir = tempfile::tempdir().unwrap();
+        let backend = Backend {
+            backend_type: BackendType::File,
+            root: dir.into_path().to_string_lossy().into(),
+        };
+        let mut hmac_keys = HashMap::new();
+        hmac_keys.insert(
+            "test".to_string(),
+            "qyZTHSD1/k26PLaLayNGFG6AkOUTtbHSKgXwS+M7W0o=".to_string(),
+        );
+
+        let publish_parameters = Some(PublishParameters {
+            signature_method: SignatureMethod::HmacSha256,
+            checksum_method: ChecksumMethod::Sha256,
+            hmac_signing_key: Some("test".to_string()),
+        });
+        Config {
+            backend,
+            publish_parameters,
+            hmac_keys: Some(hmac_keys),
+        }
+    }
 }
 
 #[cfg(test)]
