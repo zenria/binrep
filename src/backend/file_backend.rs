@@ -75,8 +75,6 @@ fn get_path(root: PathBuf, path: &str) -> PathBuf {
 #[cfg(test)]
 mod test {
     use crate::backend::Backend;
-    use rand::distributions::Alphanumeric;
-    use rand::{thread_rng, Rng};
     use std::fs::File;
     use std::io::Read;
     use std::path::{Path, PathBuf};
