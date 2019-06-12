@@ -1,6 +1,6 @@
 use crate::backend::file_backend::FileBackend;
 use crate::backend::s3_backend::S3Backend;
-use crate::backend::Backend;
+use crate::backend::{Backend, BackendError};
 use crate::config::{BackendType, Config};
 use crate::crypto::Signer;
 use crate::metadata::{Artifact, Artifacts, ChecksumMethod, Signature, SignatureMethod, Versions};
@@ -127,16 +127,24 @@ impl Repository {
         validate_artifact_name(artifact_name)?;
         match self.list_artifact_versions(artifact_name) {
             Ok(versions) => Ok(versions),
-            Err(_) => {
-                // init the repo
-                let mut artifacts = self.init()?;
-                // write new versions file
-                let new_versions = Versions::new();
-                self.write_artifact_versions(artifact_name, &new_versions)?;
-                // register artifact
-                artifacts.artifacts.push(artifact_name.into());
-                self.write_artifacts(&artifacts)?;
-                Ok(new_versions)
+            Err(e) => {
+                // check if the underlying error is a resource not found error meaning
+                // the artifact/version.sane does not exists on the backend.
+                // this avoid writing an empty version list file if the error is some network error...
+                match e.downcast::<BackendError>()? {
+                    BackendError::ResourceNotFound => {
+                        // init the repo
+                        let mut artifacts = self.init()?;
+                        // write new versions file
+                        let new_versions = Versions::new();
+                        self.write_artifact_versions(artifact_name, &new_versions)?;
+                        // register artifact
+                        artifacts.artifacts.push(artifact_name.into());
+                        self.write_artifacts(&artifacts)?;
+                        Ok(new_versions)
+                    }
+                    e => Err(e)?,
+                }
             }
         }
     }
