@@ -2,6 +2,7 @@ image: 'registry.scoopit.io/scoopit-runner'
 
 stages:
   - build
+  - deploy
 
 build:
   stage: build
@@ -20,3 +21,9 @@ release:
     - cargo build --release --all --all-targets --color=always
     - RUST_LOG=binrep=info binrep push binrep $CI_COMMIT_TAG target/release/binrep
 
+binrep_publish:
+  stage: deploy
+  only:
+    - tags
+  script:
+    - RUST_LOG=binrep=info binrep push binrep $CI_COMMIT_TAG target/release/binrep
