@@ -1,11 +1,13 @@
-use crate::backend::Backend;
+use crate::backend::{Backend, BackendError};
 use crate::config::S3BackendOpt;
 use crate::file_utils;
 use failure::{Error, Fail};
 use futures_fs::{FsPool, ReadOptions};
-use rusoto_core::{ByteStream, DefaultCredentialsProvider, HttpClient, Region};
+use rusoto_core::{ByteStream, DefaultCredentialsProvider, HttpClient, Region, RusotoError};
 use rusoto_credential::ProfileProvider;
-use rusoto_s3::{GetObjectRequest, PutObjectRequest, S3Client, StreamingBody, S3};
+use rusoto_s3::{
+    GetObjectError, GetObjectRequest, PutObjectError, PutObjectRequest, S3Client, StreamingBody, S3,
+};
 use std::default::Default;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -20,6 +22,29 @@ pub struct S3Backend {
 pub enum S3BackendError {
     #[fail(display = "No body in response")]
     NoBodyInResponse,
+}
+
+impl From<RusotoError<GetObjectError>> for BackendError {
+    fn from(e: RusotoError<GetObjectError>) -> Self {
+        match e {
+            RusotoError::Service(get_error) => match get_error {
+                GetObjectError::NoSuchKey(key) => BackendError::ResourceNotFound,
+            },
+            _ => BackendError::Other { cause: e.into() },
+        }
+    }
+}
+
+impl From<RusotoError<PutObjectError>> for BackendError {
+    fn from(e: RusotoError<PutObjectError>) -> Self {
+        BackendError::Other { cause: e.into() }
+    }
+}
+
+impl From<S3BackendError> for BackendError {
+    fn from(e: S3BackendError) -> Self {
+        BackendError::Other { cause: e.into() }
+    }
 }
 
 impl S3Backend {
@@ -41,7 +66,7 @@ impl S3Backend {
         })
     }
 
-    fn get_body(&self, path: &str) -> Result<ByteStream, Error> {
+    fn get_body(&self, path: &str) -> Result<ByteStream, BackendError> {
         let output = self
             .s3client
             .get_object(GetObjectRequest {
@@ -60,7 +85,7 @@ impl S3Backend {
 }
 
 impl Backend for S3Backend {
-    fn read_file(&self, path: &str) -> Result<String, Error> {
+    fn read_file(&self, path: &str) -> Result<String, BackendError> {
         let mut buf = String::new();
         self.get_body(path)?
             .into_blocking_read()
@@ -68,7 +93,7 @@ impl Backend for S3Backend {
         Ok(buf)
     }
 
-    fn create_file(&self, path: &str, data: String) -> Result<(), Error> {
+    fn create_file(&self, path: &str, data: String) -> Result<(), BackendError> {
         let req = PutObjectRequest {
             bucket: self.bucket.clone(),
             key: path.to_string(),
@@ -80,7 +105,7 @@ impl Backend for S3Backend {
         Ok(())
     }
 
-    fn push_file(&self, local: PathBuf, remote: &str) -> Result<(), Error> {
+    fn push_file(&self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
         let meta = std::fs::metadata(&local)?;
         let fs = FsPool::default();
         let read_stream = fs.read(local, ReadOptions::default());
@@ -96,7 +121,7 @@ impl Backend for S3Backend {
         Ok(())
     }
 
-    fn pull_file(&self, remote: &str, local: PathBuf) -> Result<(), Error> {
+    fn pull_file(&self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
         let mut file = File::create(local)?;
         let mut body = self.get_body(remote)?.into_blocking_read();
         std::io::copy(&mut body, &mut file)?;

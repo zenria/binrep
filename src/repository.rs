@@ -94,8 +94,9 @@ impl Repository {
     }
 
     fn write_artifacts(&self, artifacts: &Artifacts) -> Result<(), Error> {
-        self.backend
-            .create_file(path::artifacts(), sane::to_string(artifacts)?)
+        Ok(self
+            .backend
+            .create_file(path::artifacts(), sane::to_string(artifacts)?)?)
     }
 
     fn write_artifact_versions(
@@ -103,10 +104,10 @@ impl Repository {
         artifact_name: &str,
         versions: &Versions,
     ) -> Result<(), Error> {
-        self.backend.create_file(
+        Ok(self.backend.create_file(
             &path::artifact::versions(artifact_name),
             sane::to_string(versions)?,
-        )
+        )?)
     }
 
     fn write_artifact(
@@ -115,10 +116,10 @@ impl Repository {
         version: &Version,
         artifact: &Artifact,
     ) -> Result<(), Error> {
-        self.backend.create_file(
+        Ok(self.backend.create_file(
             &path::artifact::artifact(artifact_name, version),
             sane::to_string(artifact)?,
-        )
+        )?)
     }
 
     /// Initialize artifact repo, do nothing if the artifact repo is already initialized

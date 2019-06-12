@@ -1,10 +1,10 @@
-use crate::backend::Backend;
+use crate::backend::{Backend, BackendError};
 use crate::file_utils;
 use failure::Error;
 use failure::Fail;
 use std::fs::File;
-use std::io::Read;
 use std::io::Write;
+use std::io::{ErrorKind, Read};
 use std::path::PathBuf;
 
 pub struct FileBackend {
@@ -33,15 +33,24 @@ impl FileBackend {
     }
 }
 
+impl From<std::io::Error> for BackendError {
+    fn from(ioe: std::io::Error) -> Self {
+        match &ioe.kind() {
+            ErrorKind::NotFound => BackendError::ResourceNotFound,
+            _ => BackendError::Other { cause: ioe.into() },
+        }
+    }
+}
+
 impl Backend for FileBackend {
-    fn read_file(&self, path: &str) -> Result<String, Error> {
+    fn read_file(&self, path: &str) -> Result<String, BackendError> {
         let file_path = get_path(self.root.clone(), path);
         let mut ret = String::new();
         File::open(file_path)?.read_to_string(&mut ret)?;
         Ok(ret)
     }
 
-    fn create_file(&self, path: &str, data: String) -> Result<(), Error> {
+    fn create_file(&self, path: &str, data: String) -> Result<(), BackendError> {
         let file_path = get_path(self.root.clone(), path);
         self.mkdirs(&file_path)?;
         let mut file = File::create(file_path)?;
@@ -49,14 +58,14 @@ impl Backend for FileBackend {
         Ok(())
     }
 
-    fn push_file(&self, local: PathBuf, remote: &str) -> Result<(), Error> {
+    fn push_file(&self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
         let remote_file_path = get_path(self.root.clone(), remote);
         self.mkdirs(&remote_file_path)?;
         std::fs::copy(local, remote_file_path)?;
         Ok(())
     }
 
-    fn pull_file(&self, remote: &str, local: PathBuf) -> Result<(), Error> {
+    fn pull_file(&self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
         let remote_file_path = get_path(self.root.clone(), remote);
         std::fs::copy(remote_file_path, local)?;
         Ok(())

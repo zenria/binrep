@@ -76,7 +76,7 @@ fn main() {
     env_logger::init();
     let opt = Opt::from_args();
     if let Err(e) = _main(opt) {
-        eprintln!("{}", e);
+        eprintln!("{} - {:?}", e, e);
         std::process::exit(1);
     }
 }
