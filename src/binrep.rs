@@ -115,8 +115,8 @@ impl Binrep {
         let sync_meta = sync::read_meta(artifact_name, &destination_dir)?;
         match &sync_meta {
             Some(meta) if meta.version == latest => {
-                info!("Already the latest version");
                 let artifact = self.repository.get_artifact(artifact_name, &latest)?;
+                info!("Already the latest version");
                 Ok(SyncResult {
                     artifact,
                     status: SyncStatus::UpToDate,

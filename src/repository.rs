@@ -94,6 +94,7 @@ impl Repository {
     }
 
     fn write_artifacts(&self, artifacts: &Artifacts) -> Result<(), Error> {
+        info!("writing {}", path::artifacts());
         Ok(self
             .backend
             .create_file(path::artifacts(), sane::to_string(artifacts)?)?)
@@ -104,10 +105,11 @@ impl Repository {
         artifact_name: &str,
         versions: &Versions,
     ) -> Result<(), Error> {
-        Ok(self.backend.create_file(
-            &path::artifact::versions(artifact_name),
-            sane::to_string(versions)?,
-        )?)
+        let versions_path = path::artifact::versions(artifact_name);
+        info!("writing {}", versions_path);
+        Ok(self
+            .backend
+            .create_file(&versions_path, sane::to_string(versions)?)?)
     }
 
     fn write_artifact(
@@ -116,10 +118,11 @@ impl Repository {
         version: &Version,
         artifact: &Artifact,
     ) -> Result<(), Error> {
-        Ok(self.backend.create_file(
-            &path::artifact::artifact(artifact_name, version),
-            sane::to_string(artifact)?,
-        )?)
+        let artifact_path = path::artifact::artifact(artifact_name, version);
+        info!("writing {}", artifact_path);
+        Ok(self
+            .backend
+            .create_file(&artifact_path, sane::to_string(artifact)?)?)
     }
 
     /// Initialize artifact repo, do nothing if the artifact repo is already initialized
@@ -133,6 +136,7 @@ impl Repository {
                 // this avoid writing an empty version list file if the error is some network error...
                 match e.downcast::<BackendError>()? {
                     BackendError::ResourceNotFound => {
+                        info!("initializing new artifact {}", artifact_name);
                         // init the repo
                         let mut artifacts = self.init()?;
                         // write new versions file
@@ -150,8 +154,10 @@ impl Repository {
     }
 
     pub fn list_artifacts(&self) -> Result<Artifacts, Error> {
+        let artifacts_path = path::artifacts();
+        info!("Reading {}", artifacts_path);
         Ok(sane::from_str::<Artifacts>(
-            &self.backend.read_file(path::artifacts())?,
+            &self.backend.read_file(artifacts_path)?,
         )?)
     }
 
@@ -159,6 +165,7 @@ impl Repository {
         validate_artifact_name(artifact_name)?;
 
         let path: String = path::artifact::versions(artifact_name);
+        info!("Reading {}", path);
         Ok(sane::from_str::<Versions>(&self.backend.read_file(&path)?)?)
     }
 
@@ -170,6 +177,7 @@ impl Repository {
         validate_artifact_name(artifact_name)?;
 
         let path: String = path::artifact::artifact(artifact_name, artifact_version);
+        info!("Reading {}", path);
         let ret = sane::from_str::<Artifact>(&self.backend.read_file(&path)?)?;
         if !ret.verify_signature(&self.config)? {
             Err(RepositoryError::WrongArtifactSignature)?;
@@ -319,6 +327,11 @@ impl Repository {
     }
 
     fn mv<S: AsRef<Path>, D: AsRef<Path>>(src: S, dst: D) -> Result<(), std::io::Error> {
+        info!(
+            "mv {} to final destination {}",
+            src.as_ref().to_string_lossy(),
+            dst.as_ref().to_string_lossy()
+        );
         match std::fs::rename(src.as_ref(), dst.as_ref()) {
             Ok(_) => Ok(()),
             Err(e) => match e.kind() {
@@ -338,6 +351,7 @@ impl Repository {
         let mut dest_path = PathBuf::new();
         dest_path.push(tmp_dir.path());
         dest_path.push(&file.name);
+        info!("Pulling {} to {}", file.name, dest_path.to_string_lossy());
         self.backend.pull_file(
             &path::artifact::artifact_file(artifact_name, artifact_version, &file.name),
             dest_path.clone(),
