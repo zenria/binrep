@@ -25,8 +25,10 @@ pub struct SyncResult {
 }
 
 #[derive(Fail, Debug)]
-#[fail(display = "No version matching the requirement")]
-struct NoVersionMatching;
+#[fail(display = "No version is matching the requirement {}", version_req)]
+struct NoVersionMatching {
+    version_req: VersionReq,
+}
 
 impl Binrep {
     pub fn new<P: AsRef<Path>>(config_path: Option<P>) -> Result<Binrep, Error> {
@@ -100,17 +102,13 @@ impl Binrep {
         file_utils::mkdirs(&destination_dir)?;
 
         let latest = {
-            let mut matching_versions: Vec<Version> = self
-                .repository
-                .list_artifact_versions(artifact_name)?
-                .versions
-                .into_iter()
-                .filter(|version| version_req.matches(version))
-                .collect();
+            let mut matching_versions = self.list_artifact_versions(artifact_name, version_req)?;
             matching_versions.sort();
             match matching_versions.into_iter().last() {
                 Some(max_matching_version) => max_matching_version,
-                None => Err(NoVersionMatching)?,
+                None => Err(NoVersionMatching {
+                    version_req: version_req.clone(),
+                })?,
             }
         };
 
@@ -137,6 +135,7 @@ impl Binrep {
                     &destination_dir,
                     &sync::SyncMetadata::new(latest),
                 )?;
+                info!("Synced to {}", artifact);
 
                 Ok(SyncResult {
                     artifact,
