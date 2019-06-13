@@ -94,7 +94,20 @@ fn _main(opt: Opt) -> Result<(), Error> {
         },
         Command::Push(opt) => {
             let artifact_name = &opt.artifact_name;
-            let artifact_version = Version::parse(&opt.version)?;
+            let artifact_version = match opt.version.as_str() {
+                "auto" => binrep
+                    .last_version(artifact_name, &VersionReq::any())
+                    .or_else::<Error, _>(|e| {
+                        // ignore errors and go on with default version
+                        Ok(Some((0, 0, 1).into()))
+                    })?
+                    .map(|mut v| {
+                        v.increment_patch();
+                        v
+                    })
+                    .unwrap_or((0, 0, 1).into()),
+                v => Version::parse(v)?,
+            };
             let artifact_files = opt.files;
             let pushed = binrep.push(artifact_name, &artifact_version, &artifact_files)?;
             println!("Pushed {} {}", artifact_name, pushed);

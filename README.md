@@ -23,6 +23,9 @@ Binrep is still a work in progress.
 # directories are flattened
 binrep push binrep-bin 1.0.0 target/release/binrep
 
+# autoincrement the patch level, starting from 0.0.1 for a new artifact 
+binrep push binrep-bin auto target/release/binrep
+
 # pull the binrep-bin files in the ~/.bin directory
 binrep pull binrep-bin 1.0.0 ~/.bin
 

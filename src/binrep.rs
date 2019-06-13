@@ -96,6 +96,16 @@ impl Binrep {
         )
     }
 
+    pub fn last_version(
+        &self,
+        artifact_name: &str,
+        version_req: &VersionReq,
+    ) -> Result<Option<Version>, Error> {
+        let mut matching_versions = self.list_artifact_versions(artifact_name, version_req)?;
+        matching_versions.sort();
+        Ok(matching_versions.into_iter().last())
+    }
+
     pub fn sync<P: AsRef<Path>>(
         &self,
         artifact_name: &str,
@@ -104,15 +114,11 @@ impl Binrep {
     ) -> Result<SyncResult, Error> {
         file_utils::mkdirs(&destination_dir)?;
 
-        let latest = {
-            let mut matching_versions = self.list_artifact_versions(artifact_name, version_req)?;
-            matching_versions.sort();
-            match matching_versions.into_iter().last() {
-                Some(max_matching_version) => max_matching_version,
-                None => Err(NoVersionMatching {
-                    version_req: version_req.clone(),
-                })?,
-            }
+        let latest = match self.last_version(artifact_name, version_req)? {
+            Some(max_matching_version) => max_matching_version,
+            None => Err(NoVersionMatching {
+                version_req: version_req.clone(),
+            })?,
         };
 
         let sync_meta = sync::read_meta(artifact_name, &destination_dir)?;
