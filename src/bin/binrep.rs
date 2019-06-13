@@ -99,7 +99,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
                     .last_version(artifact_name, &VersionReq::any())
                     .or_else::<Error, _>(|e| {
                         // ignore errors and go on with default version
-                        Ok(Some((0, 0, 1).into()))
+                        Ok(Some((0, 0, 0).into()))
                     })?
                     .map(|mut v| {
                         v.increment_patch();
