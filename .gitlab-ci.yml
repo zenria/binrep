@@ -19,7 +19,6 @@ release:
       - target/release/binrep
   script:
     - cargo build --release --all --all-targets --color=always
-    - RUST_LOG=binrep=info binrep push binrep $CI_COMMIT_TAG target/release/binrep
 
 binrep_publish:
   stage: deploy
