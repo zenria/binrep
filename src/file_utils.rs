@@ -29,6 +29,27 @@ pub fn mkdirs<P: AsRef<Path>>(dir: P) -> Result<(), Error> {
     Ok(())
 }
 
+pub fn mv<S: AsRef<Path>, D: AsRef<Path>>(src: S, dst: D) -> Result<(), std::io::Error> {
+    info!(
+        "mv {} to {}",
+        src.as_ref().to_string_lossy(),
+        dst.as_ref().to_string_lossy()
+    );
+    match std::fs::rename(src.as_ref(), dst.as_ref()) {
+        Ok(_) => Ok(()),
+        Err(e) => match e.kind() {
+            ErrorKind::Other => std::fs::copy(src, dst).map(|_| ()),
+            _ => Err(e),
+        },
+    }
+}
+
+pub fn path_concat2<T: AsRef<Path>, U: AsRef<Path>>(p1: T, p2: U) -> PathBuf {
+    [p1.as_ref(), p2.as_ref().into()]
+        .iter()
+        .collect::<PathBuf>()
+}
+
 pub fn read_sane_from_file<P: AsRef<Path>, D: DeserializeOwned>(file: P) -> Result<D, Error> {
     let mut file = File::open(&file)?;
     let mut s = String::new();

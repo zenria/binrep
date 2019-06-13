@@ -16,6 +16,7 @@ use tempfile::{tempdir, TempDir};
 
 use crate::crypto;
 use crate::file_utils;
+use crate::file_utils::{mv, path_concat2};
 use crate::metadata;
 use crate::path;
 
@@ -243,8 +244,7 @@ impl Repository {
         };
 
         for (file, filename) in files.iter().zip(filenames.iter()) {
-            let mut local_path = PathBuf::new();
-            local_path.push(file);
+            let local_path = PathBuf::from(file.as_ref());
             self.backend.push_file(
                 local_path,
                 &path::artifact::artifact_file(artifact_name, version, filename),
@@ -300,9 +300,7 @@ impl Repository {
                 .files
                 .iter()
                 .try_fold(Vec::new(), |mut paths, file| -> Result<_, Error> {
-                    let mut dest_file_path = PathBuf::new();
-                    dest_file_path.push(&dest_path);
-                    dest_file_path.push(&file.name);
+                    let dest_file_path = path_concat2(&dest_path, &file.name);
                     if let Ok(_) = std::fs::metadata(&dest_file_path) {
                         if !overwrite_dest {
                             // cannot overwrite => error
@@ -321,24 +319,9 @@ impl Repository {
         temporary_file_paths
             .iter()
             .zip(dest_file_paths.iter())
-            .try_for_each(|(src, dst)| Self::mv(src, dst))?;
+            .try_for_each(|(src, dst)| mv(src, dst))?;
 
         Ok(artifact)
-    }
-
-    fn mv<S: AsRef<Path>, D: AsRef<Path>>(src: S, dst: D) -> Result<(), std::io::Error> {
-        info!(
-            "mv {} to final destination {}",
-            src.as_ref().to_string_lossy(),
-            dst.as_ref().to_string_lossy()
-        );
-        match std::fs::rename(src.as_ref(), dst.as_ref()) {
-            Ok(_) => Ok(()),
-            Err(e) => match e.kind() {
-                ErrorKind::Other => std::fs::copy(src, dst).map(|_| ()),
-                _ => Err(e),
-            },
-        }
     }
 
     fn copy_to_tmpdir(
@@ -348,9 +331,7 @@ impl Repository {
         file: &metadata::File,
         tmp_dir: &TempDir,
     ) -> Result<PathBuf, Error> {
-        let mut dest_path = PathBuf::new();
-        dest_path.push(tmp_dir.path());
-        dest_path.push(&file.name);
+        let dest_path = path_concat2(&tmp_dir, &file.name);
         info!("Pulling {} to {}", file.name, dest_path.to_string_lossy());
         self.backend.pull_file(
             &path::artifact::artifact_file(artifact_name, artifact_version, &file.name),

@@ -2,11 +2,14 @@
 use crate::config::Config;
 use crate::config_resolver::resolve_config;
 use crate::file_utils;
+use crate::file_utils::{mv, path_concat2};
 use crate::metadata::*;
 use crate::repository::Repository;
 use failure::{Error, Fail};
 use semver::{Version, VersionReq};
-use std::path::Path;
+use std::fs::metadata;
+use std::path::{Path, PathBuf};
+use tempfile::tempdir;
 
 pub struct Binrep {
     repository: Repository,
@@ -114,31 +117,43 @@ impl Binrep {
 
         let sync_meta = sync::read_meta(artifact_name, &destination_dir)?;
         match &sync_meta {
-            Some(meta) if meta.version == latest => {
-                let artifact = self.repository.get_artifact(artifact_name, &latest)?;
+            Some(meta) if meta.artifact.version == latest => {
                 info!("Already the latest version");
                 Ok(SyncResult {
-                    artifact,
+                    artifact: meta.artifact.clone(), // this is a shitty clone!
                     status: SyncStatus::UpToDate,
                 })
             }
-            _ => {
-                let artifact = self.repository.pull_artifact(
-                    artifact_name,
-                    &latest,
-                    &destination_dir,
-                    true,
-                )?;
+            meta => {
+                // pull artifact to tempdir
+                let temp_sync_dir = tempdir()?;
+                let artifact =
+                    self.repository
+                        .pull_artifact(artifact_name, &latest, &temp_sync_dir, true)?;
+                // remove existing files if any
+                meta.as_ref()
+                    .map(|meta| meta.artifact.files.clone())
+                    .iter()
+                    .flatten()
+                    .try_for_each(|file| {
+                        let file_path = path_concat2(&destination_dir, &file.name);
+                        std::fs::metadata(&file_path)
+                            .and_then(|_| std::fs::remove_file(&file_path))
+                            .or::<std::io::Error>(Ok(()))
+                    })?;
+                // move temp file to final destination
+                artifact.files.iter().try_for_each(|file| {
+                    let src = path_concat2(&temp_sync_dir, &file.name);
+                    let dst = path_concat2(&destination_dir, &file.name);
+                    mv(src, dst)
+                })?;
 
-                sync::write_meta(
-                    artifact_name,
-                    &destination_dir,
-                    &sync::SyncMetadata::new(latest),
-                )?;
                 info!("Synced to {}", artifact);
+                let new_meta = sync::SyncMetadata::new(artifact);
+                sync::write_meta(artifact_name, &destination_dir, &new_meta)?;
 
                 Ok(SyncResult {
-                    artifact,
+                    artifact: new_meta.artifact,
                     status: SyncStatus::Updated,
                 })
             }
@@ -148,6 +163,7 @@ impl Binrep {
 
 mod sync {
     use crate::file_utils;
+    use crate::metadata::Artifact;
     use chrono::prelude::*;
     use failure::Error;
     use semver::Version;
@@ -158,14 +174,14 @@ mod sync {
 
     #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
     pub struct SyncMetadata {
-        pub version: Version,
         last_updated: String,
+        pub artifact: Artifact,
     }
 
     impl SyncMetadata {
-        pub fn new(version: Version) -> Self {
+        pub fn new(artifact: Artifact) -> Self {
             Self {
-                version,
+                artifact,
                 last_updated: Utc::now().to_rfc3339(),
             }
         }
@@ -205,6 +221,10 @@ mod sync {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::file_utils::path_concat2;
+    use std::fs::metadata;
+    use std::path::PathBuf;
+    use tempfile::tempdir;
 
     static ANAME: &'static str = "binrep";
 
@@ -253,5 +273,82 @@ mod test {
         let sr = br.sync(ANAME, &VersionReq::any(), &dest_sync).unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v2, sr.artifact.version);
+    }
+    #[test]
+    fn test_sync_file_presence() {
+        let br = Binrep::from_config(Config::create_file_test_config()).unwrap();
+        let v1 = Version::parse("1.0.0").unwrap();
+        let v12 = Version::parse("1.2.0").unwrap();
+        let v2 = Version::parse("2.0.0").unwrap();
+
+        let artifact_src = tempdir().unwrap();
+        let path_v1 = path_concat2(artifact_src.path(), "a-1.zip");
+        let path_v2 = path_concat2(artifact_src.path(), "a-2.zip");
+
+        std::fs::File::create(&path_v1).unwrap();
+        std::fs::File::create(&path_v2).unwrap();
+
+        br.push("a", &v1, &vec![&path_v1]).unwrap();
+        br.push("a", &v12, &vec![&path_v1]).unwrap();
+        br.push("a", &v2, &vec![&path_v2]).unwrap();
+
+        let syncdest = tempdir().unwrap();
+        let synced_path_v1 = path_concat2(syncdest.path(), "a-1.zip");
+        let synced_path_v2 = path_concat2(syncdest.path(), "a-2.zip");
+
+        // sync v1
+        assert_eq!(
+            SyncStatus::Updated,
+            br.sync("a", &VersionReq::exact(&v1), syncdest.path())
+                .unwrap()
+                .status,
+        );
+        assert_path(PathAssertion::File, &synced_path_v1);
+        assert_path(PathAssertion::Absent, &synced_path_v2);
+        // sync v12
+        assert_eq!(
+            SyncStatus::Updated,
+            br.sync("a", &VersionReq::exact(&v12), syncdest.path())
+                .unwrap()
+                .status,
+        );
+        assert_path(PathAssertion::File, &synced_path_v1);
+        assert_path(PathAssertion::Absent, &synced_path_v2);
+        // re-sync v12
+        assert_eq!(
+            SyncStatus::UpToDate,
+            br.sync("a", &VersionReq::exact(&v12), syncdest.path())
+                .unwrap()
+                .status,
+        );
+        assert_path(PathAssertion::File, &synced_path_v1);
+        assert_path(PathAssertion::Absent, &synced_path_v2);
+        // sync "latest"
+        assert_eq!(
+            SyncStatus::Updated,
+            br.sync("a", &VersionReq::any(), syncdest.path())
+                .unwrap()
+                .status,
+        );
+        assert_path(PathAssertion::Absent, &synced_path_v1);
+        assert_path(PathAssertion::File, &synced_path_v2);
+    }
+    #[derive(Eq, PartialEq, Debug)]
+    enum PathAssertion {
+        Absent, // absent or do not have the right to read meta
+        Dir,
+        File,
+    }
+    fn assert_path<P: AsRef<Path>>(assertion: PathAssertion, path: P) {
+        match metadata(path.as_ref()) {
+            Err(e) => assert_eq!(PathAssertion::Absent, assertion),
+            Ok(meta) => match assertion {
+                PathAssertion::File => assert!(meta.is_file()),
+                PathAssertion::Dir => assert!(meta.is_dir()),
+                PathAssertion::Absent => {
+                    panic!("{} is not absent", path.as_ref().to_string_lossy())
+                }
+            },
+        }
     }
 }
