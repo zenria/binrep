@@ -1,4 +1,5 @@
 use failure::{Error, Fail};
+use fs2::FileExt;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::fs::File;
@@ -9,6 +10,30 @@ use tempfile::tempdir;
 #[derive(Fail, Debug)]
 #[fail(display = "{} is not a directory", 0)]
 pub struct PathIsNotADirectoryError(pub String);
+
+pub struct LockFile<P: AsRef<Path>> {
+    lock_file_path: P,
+    lock_file: File,
+}
+
+impl<P: AsRef<Path>> LockFile<P> {
+    pub fn create_and_lock(lock_file_path: P) -> Result<Self, Error> {
+        let lock_file = File::create(&lock_file_path)?;
+        lock_file.try_lock_exclusive()?;
+        Ok(Self {
+            lock_file,
+            lock_file_path,
+        })
+    }
+}
+
+impl<P: AsRef<Path>> Drop for LockFile<P> {
+    #[allow(unused_must_use)]
+    fn drop(&mut self) {
+        self.lock_file.unlock();
+        std::fs::remove_file(&self.lock_file_path);
+    }
+}
 
 pub fn mkdirs<P: AsRef<Path>>(dir: P) -> Result<(), Error> {
     if let Err(e) = std::fs::create_dir_all(&dir) {

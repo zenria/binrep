@@ -2,13 +2,15 @@
 use crate::config::Config;
 use crate::config_resolver::resolve_config;
 use crate::file_utils;
-use crate::file_utils::{mv, path_concat2};
+use crate::file_utils::{mkdirs, mv, path_concat2, LockFile};
 use crate::metadata::*;
 use crate::repository::Repository;
 use failure::{Error, Fail};
+use fs2::FileExt;
 use semver::{Version, VersionReq};
 use std::fs::metadata;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tempfile::tempdir;
 
 pub struct Binrep {
@@ -120,6 +122,13 @@ impl Binrep {
                 version_req: version_req.clone(),
             })?,
         };
+
+        mkdirs(&destination_dir)?;
+        let lock_file_path = path_concat2(
+            &destination_dir,
+            format!(".{}.binrep-sync.lock", artifact_name),
+        );
+        let lock_file = LockFile::create_and_lock(lock_file_path)?;
 
         let sync_meta = sync::read_meta(artifact_name, &destination_dir)?;
         match &sync_meta {

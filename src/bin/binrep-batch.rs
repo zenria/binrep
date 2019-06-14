@@ -139,5 +139,8 @@ mod test {
             destination="/srv/www/binrep-bootstrap"
         "#;
         sane::from_str::<BatchConfig>(c).unwrap();
+        // test empty config
+
+        sane::from_str::<BatchConfig>("sync=[]").unwrap();
     }
 }
