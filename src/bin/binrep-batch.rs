@@ -28,6 +28,7 @@ pub struct SyncOperation {
     pub version_req: String,
     #[serde(rename = "destination")]
     pub destination_dir: String,
+    pub exec: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -53,6 +54,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
 
 mod batch {
     use binrep::binrep::{Binrep, SyncStatus};
+    use binrep::exec::exec;
     use failure::Error;
     use semver::VersionReq;
     use std::convert::{TryFrom, TryInto};
@@ -62,6 +64,7 @@ mod batch {
         artifact_name: String,
         version_req: VersionReq,
         destination_dir: PathBuf,
+        command: Option<String>,
     }
     impl TryFrom<super::SyncOperation> for SyncOperation {
         type Error = Error;
@@ -71,6 +74,7 @@ mod batch {
                 artifact_name: value.artifact_name,
                 version_req: VersionReq::parse(&value.version_req)?,
                 destination_dir: PathBuf::from(value.destination_dir),
+                command: value.exec,
             })
         }
     }
@@ -93,11 +97,16 @@ mod batch {
             let result = binrep.sync(
                 &operation.artifact_name,
                 &operation.version_req,
-                operation.destination_dir,
+                &operation.destination_dir,
             )?;
             match &result.status {
                 SyncStatus::Updated => {
                     println!("updated: {}", result.artifact);
+                    exec(
+                        &result.artifact,
+                        &operation.destination_dir,
+                        &operation.command,
+                    )?;
                 }
                 SyncStatus::UpToDate => {
                     println!("Already the latest version {}", result.artifact.version);
@@ -124,7 +133,8 @@ mod test {
             {
                 name="binrep-bootstrap",
                 version="2",
-                destination="/srv/www/binrep-bootstrap"
+                destination="/srv/www/binrep-bootstrap",
+                exec="echo hello"
             },
         ]"#;
         sane::from_str::<BatchConfig>(c).unwrap();
@@ -137,6 +147,7 @@ mod test {
             name="binrep-bootstrap"
             version="2"
             destination="/srv/www/binrep-bootstrap"
+            exec="echo hello"
         "#;
         sane::from_str::<BatchConfig>(c).unwrap();
         // test empty config

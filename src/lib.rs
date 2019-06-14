@@ -11,6 +11,7 @@ pub mod binrep;
 pub mod config;
 pub mod config_resolver;
 mod crypto;
+pub mod exec;
 mod file_utils;
 pub mod metadata;
 mod path;

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 use binrep::binrep::{Binrep, SyncStatus};
+use binrep::exec::exec;
 use semver::{Version, VersionReq};
 use std::fmt::Display;
 
@@ -123,7 +124,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
             let artifact_name = &opt.artifact_name;
             let version_req = parse_version_req(Some(opt.version_req))?;
             let destination_dir = opt.destination_dir;
-            let sync = binrep.sync(artifact_name, &version_req, destination_dir)?;
+            let sync = binrep.sync(artifact_name, &version_req, &destination_dir)?;
             let print_output = opt.exec_command.is_none();
             match sync.status {
                 SyncStatus::UpToDate => {
@@ -135,24 +136,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
                     if print_output {
                         println!("Updated {} to {}", artifact_name, sync.artifact);
                     }
-                    match opt.exec_command {
-                        None => (),
-                        Some(command) => {
-                            let status = if cfg!(target_os = "windows") {
-                                std::process::Command::new("cmd")
-                                    .args(&["/C", &command])
-                                    .status()?
-                            } else {
-                                std::process::Command::new("sh")
-                                    .arg("-c")
-                                    .arg(&command)
-                                    .status()?
-                            };
-                            if !status.success() {
-                                std::process::exit(status.code().unwrap_or(1));
-                            }
-                        }
-                    }
+                    exec(&sync.artifact, &destination_dir, &opt.exec_command)?;
                 }
             }
         }
