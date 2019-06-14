@@ -34,8 +34,8 @@ struct NoVersionMatching {
 }
 
 impl Binrep {
-    pub fn new<P: AsRef<Path>>(config_path: Option<P>) -> Result<Binrep, Error> {
-        let config = resolve_config(config_path)?;
+    pub fn new<P: AsRef<Path>>(config_path: &Option<P>) -> Result<Binrep, Error> {
+        let config: Config = resolve_config(&config_path, "config.sane")?;
         Self::from_config(config)
     }
 

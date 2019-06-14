@@ -82,7 +82,7 @@ fn main() {
 }
 
 fn _main(opt: Opt) -> Result<(), Error> {
-    let binrep = Binrep::new(opt.config_file)?;
+    let binrep = Binrep::new(&opt.config_file)?;
     match opt.command {
         // LIST----------
         Command::List(opt) => match opt.artifact_name {

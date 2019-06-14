@@ -1,6 +1,6 @@
 [package]
 name = "binrep"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Philippe GASSMANN <pgassmann@scoop.it>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -26,4 +26,8 @@ env_logger = "0.6.1"
 [[bin]]
 name="binrep"
 path="src/bin/binrep.rs"
+
+[[bin]]
+name="binrep-batch"
+path="src/bin/binrep-batch.rs"
 

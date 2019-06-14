@@ -26,3 +26,4 @@ binrep_publish:
     - tags
   script:
     - RUST_LOG=binrep=info binrep push binrep $CI_COMMIT_TAG target/release/binrep
+
