@@ -6,12 +6,9 @@ use failure::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use binrep::binrep::{Binrep, SyncStatus};
-use binrep::config::Config;
+use binrep::binrep::Binrep;
 use binrep::config_resolver::resolve_config;
-use semver::{Version, VersionReq};
 use serde::Deserialize;
-use std::fmt::Display;
 
 #[derive(StructOpt)]
 struct Opt {
@@ -24,19 +21,19 @@ struct Opt {
 }
 
 #[derive(Debug, Deserialize)]
-struct SyncOperation {
+pub struct SyncOperation {
     #[serde(rename = "name")]
-    artifact_name: String,
+    pub artifact_name: String,
     #[serde(rename = "version")]
-    version_req: String,
+    pub version_req: String,
     #[serde(rename = "destination")]
-    destination_dir: String,
+    pub destination_dir: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct BatchConfig {
     #[serde(rename = "sync")]
-    sync_operation: Vec<SyncOperation>,
+    sync_operations: Vec<SyncOperation>,
 }
 
 fn main() {
@@ -48,9 +45,67 @@ fn main() {
     }
 }
 fn _main(opt: Opt) -> Result<(), Error> {
-    let config: Config = resolve_config(&opt.config_file, "config.sane")?;
     let batch_config: BatchConfig = resolve_config(&opt.batch_configuration_file, "batch.sane")?;
+    let binrep = Binrep::new(&opt.config_file)?;
+    batch::sync(&binrep, batch_config.sync_operations)?;
     Ok(())
+}
+
+mod batch {
+    use binrep::binrep::{Binrep, SyncStatus};
+    use failure::Error;
+    use semver::VersionReq;
+    use std::convert::{TryFrom, TryInto};
+    use std::path::PathBuf;
+
+    struct SyncOperation {
+        artifact_name: String,
+        version_req: VersionReq,
+        destination_dir: PathBuf,
+    }
+    impl TryFrom<super::SyncOperation> for SyncOperation {
+        type Error = Error;
+
+        fn try_from(value: super::SyncOperation) -> Result<Self, Self::Error> {
+            Ok(SyncOperation {
+                artifact_name: value.artifact_name,
+                version_req: VersionReq::parse(&value.version_req)?,
+                destination_dir: PathBuf::from(value.destination_dir),
+            })
+        }
+    }
+
+    pub fn sync(binrep: &Binrep, operations: Vec<super::SyncOperation>) -> Result<(), Error> {
+        // validate config
+        let operations: Vec<SyncOperation> = operations.into_iter().try_fold(
+            Vec::new(),
+            |mut acc, op| -> Result<Vec<SyncOperation>, Error> {
+                acc.push(op.try_into()?);
+                Ok(acc)
+            },
+        )?;
+        for operation in operations {
+            println!(
+                "Syncing {} to {}",
+                operation.artifact_name,
+                operation.destination_dir.to_string_lossy()
+            );
+            let result = binrep.sync(
+                &operation.artifact_name,
+                &operation.version_req,
+                operation.destination_dir,
+            )?;
+            match &result.status {
+                SyncStatus::Updated => {
+                    println!("updated: {}", result.artifact);
+                }
+                SyncStatus::UpToDate => {
+                    println!("Already the latest version {}", result.artifact.version);
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
