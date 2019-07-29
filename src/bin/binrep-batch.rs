@@ -6,7 +6,6 @@ use failure::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use binrep::binrep::parse_version_req;
 use binrep::binrep::Binrep;
 use binrep::config_resolver::resolve_config;
 use serde::Deserialize;
