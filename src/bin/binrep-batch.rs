@@ -6,6 +6,7 @@ use failure::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
+use binrep::binrep::parse_version_req;
 use binrep::binrep::Binrep;
 use binrep::config_resolver::resolve_config;
 use serde::Deserialize;
@@ -53,7 +54,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
 }
 
 mod batch {
-    use binrep::binrep::{Binrep, SyncStatus};
+    use binrep::binrep::{parse_version_req, Binrep, SyncStatus};
     use binrep::exec::exec;
     use failure::Error;
     use semver::VersionReq;
@@ -72,7 +73,7 @@ mod batch {
         fn try_from(value: super::SyncOperation) -> Result<Self, Self::Error> {
             Ok(SyncOperation {
                 artifact_name: value.artifact_name,
-                version_req: VersionReq::parse(&value.version_req)?,
+                version_req: parse_version_req(&value.version_req)?,
                 destination_dir: PathBuf::from(value.destination_dir),
                 command: value.exec,
             })

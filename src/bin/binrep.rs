@@ -4,6 +4,7 @@ use failure::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
+use binrep::binrep::parse_version_req;
 use binrep::binrep::{Binrep, SyncStatus};
 use binrep::exec::exec;
 use semver::{Version, VersionReq};
@@ -88,10 +89,10 @@ fn _main(opt: Opt) -> Result<(), Error> {
         // LIST----------
         Command::List(opt) => match opt.artifact_name {
             None => print_list(binrep.list_artifacts()?.artifacts),
-            Some(artifact_name) => print_list(
-                binrep
-                    .list_artifact_versions(&artifact_name, &parse_version_req(opt.version_req)?)?,
-            ),
+            Some(artifact_name) => print_list(binrep.list_artifact_versions(
+                &artifact_name,
+                &parse_optional_version_req(opt.version_req)?,
+            )?),
         },
         Command::Push(opt) => {
             let artifact_name = &opt.artifact_name;
@@ -122,7 +123,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
         }
         Command::Sync(opt) => {
             let artifact_name = &opt.artifact_name;
-            let version_req = parse_version_req(Some(opt.version_req))?;
+            let version_req = parse_version_req(&opt.version_req)?;
             let destination_dir = opt.destination_dir;
             let sync = binrep.sync(artifact_name, &version_req, &destination_dir)?;
             let print_output = opt.exec_command.is_none();
@@ -150,16 +151,15 @@ fn _main(opt: Opt) -> Result<(), Error> {
     Ok(())
 }
 
+pub fn parse_optional_version_req(input: Option<String>) -> Result<VersionReq, Error> {
+    Ok(match &input {
+        None => VersionReq::any(),
+        Some(v) => parse_version_req(&v)?,
+    })
+}
+
 fn print_list<T: Display, I: IntoIterator<Item = T>>(collection: I) {
     for item in collection {
         println!("{}", item);
     }
-}
-
-fn parse_version_req(input: Option<String>) -> Result<VersionReq, Error> {
-    Ok(match &input {
-        None => VersionReq::any(),
-        Some(v) if v == "latest" => VersionReq::any(),
-        Some(v) => VersionReq::parse(v)?,
-    })
 }

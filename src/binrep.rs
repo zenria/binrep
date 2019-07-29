@@ -233,6 +233,13 @@ mod sync {
 
 }
 
+pub fn parse_version_req(input: &str) -> Result<VersionReq, Error> {
+    Ok(match input {
+        v if v == "latest" || v == "any" => VersionReq::any(),
+        v => VersionReq::parse(v)?,
+    })
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -289,6 +296,21 @@ mod test {
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v2, sr.artifact.version);
     }
+    #[test]
+    fn test_alpha() {
+        let br = Binrep::from_config(Config::create_file_test_config()).unwrap();
+        let valpha = Version::parse("1.0.0-alpha1").unwrap();
+        br.push(ANAME, &valpha, &vec!["Cargo.toml"]).unwrap();
+
+        let dest_sync = tempfile::tempdir().unwrap();
+
+        let sr = br
+            .sync(ANAME, &super::parse_version_req("any").unwrap(), &dest_sync)
+            .unwrap();
+        assert_eq!(SyncStatus::Updated, sr.status);
+        assert_eq!(valpha, sr.artifact.version);
+    }
+
     #[test]
     fn test_sync_file_presence() {
         let br = Binrep::from_config(Config::create_file_test_config()).unwrap();
