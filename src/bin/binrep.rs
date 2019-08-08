@@ -12,6 +12,9 @@ use std::fmt::Display;
 
 #[derive(StructOpt)]
 struct PullOpt {
+    /// Command to execute after the artifact has been successfully pulled
+    #[structopt(short = "e", long = "exec")]
+    exec_command: Option<String>,
     artifact_name: String,
     version: String,
     #[structopt(parse(from_os_str))]
@@ -118,8 +121,9 @@ fn _main(opt: Opt) -> Result<(), Error> {
             let artifact_name = &opt.artifact_name;
             let artifact_version = Version::parse(&opt.version)?;
             let destination_dir = opt.destination_dir;
-            let pushed = binrep.pull(artifact_name, &artifact_version, &destination_dir, true)?;
-            println!("Pulled {} {}", artifact_name, pushed);
+            let pulled = binrep.pull(artifact_name, &artifact_version, &destination_dir, true)?;
+            println!("Pulled {} {}", artifact_name, pulled);
+            exec(&pulled, &destination_dir, &opt.exec_command)?;
         }
         Command::Sync(opt) => {
             let artifact_name = &opt.artifact_name;
