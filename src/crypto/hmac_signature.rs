@@ -5,7 +5,8 @@ use crate::metadata::{Artifact, ChecksumMethod, SignatureMethod};
 
 use super::{Signer, Verifier};
 use failure::Error;
-use ring::digest::Algorithm;
+use ring::hkdf::KeyType;
+use ring::hmac::Algorithm;
 use ring::{digest, hmac};
 
 pub struct HmacShaSignature {
@@ -16,22 +17,22 @@ pub struct HmacShaSignature {
 }
 
 #[derive(Copy, Clone)]
-struct HmacSignatureMethod(&'static Algorithm);
+struct HmacSignatureMethod(Algorithm);
 
 impl HmacSignatureMethod {
     fn new(signature_method: &SignatureMethod) -> Self {
         match signature_method {
-            SignatureMethod::HmacSha256 => Self(&digest::SHA256),
-            SignatureMethod::HmacSha384 => Self(&digest::SHA384),
-            SignatureMethod::HmacSha512 => Self(&digest::SHA512),
+            SignatureMethod::HmacSha256 => Self(hmac::HMAC_SHA256),
+            SignatureMethod::HmacSha384 => Self(hmac::HMAC_SHA384),
+            SignatureMethod::HmacSha512 => Self(hmac::HMAC_SHA512),
         }
     }
-    fn digest_algorithm(&self) -> &'static Algorithm {
+    fn digest_algorithm(&self) -> Algorithm {
         self.0
     }
 
     fn key_len(&self) -> usize {
-        self.digest_algorithm().output_len
+        self.digest_algorithm().len()
     }
 }
 
@@ -53,7 +54,7 @@ impl HmacShaSignature {
 
 impl Signer for HmacShaSignature {
     fn sign(&self, msg: &[u8]) -> Result<Vec<u8>, Error> {
-        let s_key = hmac::SigningKey::new(self.hmac_signature_method.digest_algorithm(), &self.key);
+        let s_key = hmac::Key::new(self.hmac_signature_method.digest_algorithm(), &self.key);
         let signature = hmac::sign(&s_key, msg);
         Ok(Vec::from(signature.as_ref()))
     }
@@ -69,8 +70,7 @@ impl Signer for HmacShaSignature {
 
 impl Verifier for HmacShaSignature {
     fn verify(&self, msg: &[u8], signature: Vec<u8>) -> bool {
-        let v_key =
-            hmac::VerificationKey::new(self.hmac_signature_method.digest_algorithm(), &self.key);
+        let v_key = hmac::Key::new(self.hmac_signature_method.digest_algorithm(), &self.key);
         match hmac::verify(&v_key, msg, &signature) {
             Ok(_) => true,
             Err(_) => false,

@@ -12,6 +12,7 @@ structopt = "0.3"
 failure = "0.1.5"
 ring="0.16.9"
 log="0.4"
+shellexpand = "1.0.0"
 semver={ version="0.9.0", features=["serde"]}
 base64="0.10.1"
 tempfile="3"
