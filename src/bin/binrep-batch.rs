@@ -8,7 +8,12 @@ use structopt::StructOpt;
 
 use binrep::binrep::Binrep;
 use binrep::config_resolver::resolve_config;
+use binrep::file_utils;
+use glob::glob;
 use serde::Deserialize;
+use serde::Serialize;
+
+use log::debug;
 
 #[derive(StructOpt)]
 struct Opt {
@@ -20,7 +25,7 @@ struct Opt {
     batch_configuration_file: Option<PathBuf>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct SyncOperation {
     #[serde(rename = "name")]
     pub artifact_name: String,
@@ -31,8 +36,10 @@ pub struct SyncOperation {
     pub exec: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct BatchConfig {
+    /// eg. includes=/etc/binrep/batch.d/*.sane
+    includes: Option<String>,
     #[serde(rename = "sync")]
     sync_operations: Vec<SyncOperation>,
 }
@@ -48,8 +55,31 @@ fn main() {
 fn _main(opt: Opt) -> Result<(), Error> {
     let batch_config: BatchConfig = resolve_config(&opt.batch_configuration_file, "batch.sane")?;
     let binrep = Binrep::new(&opt.config_file)?;
-    batch::sync(&binrep, batch_config.sync_operations)?;
+
+    let operations: Vec<SyncOperation> = batch_config
+        .sync_operations
+        .into_iter()
+        .chain(get_operation_from_includes(batch_config.includes))
+        .collect();
+
+    batch::sync(&binrep, operations)?;
     Ok(())
+}
+
+fn get_operation_from_includes(includes: Option<String>) -> Vec<SyncOperation> {
+    includes
+        .map(|includes_path| glob(&includes_path).expect("Failed to read glob pattern"))
+        .into_iter()
+        .flatten()
+        .map(|path| path.unwrap())
+        .map(|path| {
+            debug!("Reading included config file {:?}", path);
+            file_utils::read_sane_from_file::<_, BatchConfig>(path)
+                .unwrap()
+                .sync_operations
+        })
+        .flatten()
+        .collect()
 }
 
 mod batch {
@@ -120,6 +150,8 @@ mod batch {
 #[cfg(test)]
 mod test {
     use crate::BatchConfig;
+    use crate::{get_operation_from_includes, SyncOperation};
+    use binrep::file_utils;
 
     #[test]
     fn test_config() {
@@ -153,5 +185,68 @@ mod test {
         // test empty config
 
         sane::from_str::<BatchConfig>("sync=[]").unwrap();
+
+        sane::from_str::<BatchConfig>("includes=\"/etc/batch.d/*.sync\"\nsync=[]").unwrap();
+
+        assert_eq!(
+            Vec::<SyncOperation>::new(),
+            get_operation_from_includes(None)
+        );
+        assert_eq!(
+            Vec::<SyncOperation>::new(),
+            get_operation_from_includes(Some("src/non-exising/*.sane".into()))
+        );
+        let temp_dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            Vec::<SyncOperation>::new(),
+            get_operation_from_includes(Some(format!(
+                "{}/*.sane",
+                temp_dir.path().to_string_lossy()
+            )))
+        );
+
+        let file1 = file_utils::path_concat2(&temp_dir, "coucou.sane");
+        let operations1 = BatchConfig {
+            sync_operations: vec![SyncOperation {
+                artifact_name: "coucou".to_string(),
+                version_req: "latest".to_string(),
+                destination_dir: "/tmp/abcde".to_string(),
+                exec: None,
+            }],
+            includes: None,
+        };
+        file_utils::write_sane_to_file(&file1, &operations1).unwrap();
+
+        let file2 = file_utils::path_concat2(&temp_dir, "coucou2.sane");
+        let operations2 = BatchConfig {
+            sync_operations: vec![
+                SyncOperation {
+                    artifact_name: "coucou1".to_string(),
+                    version_req: "1.3.0".to_string(),
+                    destination_dir: "/tmp/abcdef".to_string(),
+                    exec: None,
+                },
+                SyncOperation {
+                    artifact_name: "coucou2".to_string(),
+                    version_req: "1.0.3".to_string(),
+                    destination_dir: "/tmp/abcdsdsdef".to_string(),
+                    exec: None,
+                },
+            ],
+            includes: None,
+        };
+        file_utils::write_sane_to_file(&file2, &operations2).unwrap();
+
+        assert_eq!(
+            operations1
+                .sync_operations
+                .into_iter()
+                .chain(operations2.sync_operations.into_iter())
+                .collect::<Vec<_>>(),
+            get_operation_from_includes(Some(format!(
+                "{}/*.sane",
+                temp_dir.path().to_string_lossy()
+            )))
+        );
     }
 }
