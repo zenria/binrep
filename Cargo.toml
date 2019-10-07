@@ -1,6 +1,6 @@
 [package]
 name = "binrep"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Philippe GASSMANN <pgassmann@scoop.it>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -26,6 +26,7 @@ fs2="0.4.3"
 # statically link openssl to our binary so we can run on ubuntu:* even if build from a debian strech version
 openssl = { version = "0.10", features = ["vendored"] }
 glob = "0.3.0"
+slack-hook = "0.8.0"
 
 [[bin]]
 name="binrep"

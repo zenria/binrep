@@ -50,6 +50,7 @@ pub struct Config {
     pub backend: Backend,
     pub publish_parameters: Option<PublishParameters>,
     pub hmac_keys: Option<HashMap<String, String>>,
+    pub slack_webhook_url: Option<String>,
 }
 
 #[derive(Debug, Fail)]
@@ -100,6 +101,7 @@ impl Config {
             backend,
             publish_parameters,
             hmac_keys: Some(hmac_keys),
+            slack_webhook_url: None,
         }
     }
 }

@@ -8,6 +8,7 @@ use crate::repository::Repository;
 use failure::{Error, Fail};
 use fs2::FileExt;
 use semver::{Version, VersionReq};
+use slack_hook::{PayloadBuilder, Slack};
 use std::fs::metadata;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -15,6 +16,7 @@ use tempfile::tempdir;
 
 pub struct Binrep {
     repository: Repository,
+    slack_webhook_url: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -42,8 +44,12 @@ impl Binrep {
     }
 
     pub fn from_config(config: Config) -> Result<Binrep, Error> {
+        let slack_webhook_url = config.slack_webhook_url.clone();
         let repository = Repository::new(config)?;
-        Ok(Self { repository })
+        Ok(Self {
+            repository,
+            slack_webhook_url,
+        })
     }
 
     pub fn list_artifacts(&self) -> Result<Artifacts, Error> {
@@ -79,8 +85,34 @@ impl Binrep {
         artifact_version: &Version,
         files: &[P],
     ) -> Result<Artifact, Error> {
-        self.repository
-            .push_artifact(artifact_name, artifact_version, files)
+        let pushed_artifact =
+            self.repository
+                .push_artifact(artifact_name, artifact_version, files)?;
+
+        if let Err(e) = self.send_slack_notif(artifact_name, artifact_version) {
+            warn!("Cannot send slack nocitifaction: {}", e);
+        }
+
+        Ok(pushed_artifact)
+    }
+
+    fn send_slack_notif(
+        &self,
+        artifact_name: &str,
+        artifact_version: &Version,
+    ) -> Result<(), slack_hook::Error> {
+        if let Some(slack_webhook_url) = &self.slack_webhook_url {
+            let slack = Slack::new(slack_webhook_url.clone().as_str())?;
+            let p = PayloadBuilder::new()
+                .text(format!(
+                    "Pushed version *{}* of *{}* to artifact repository.",
+                    artifact_version, artifact_name
+                ))
+                .build()?;
+
+            slack.send(&p)?;
+        }
+        Ok(())
     }
 
     pub fn pull<P: AsRef<Path>>(
@@ -230,7 +262,6 @@ mod sync {
     ) -> Result<(), Error> {
         file_utils::write_sane_to_file(get_meta_path(artifact_name, dir), meta)
     }
-
 }
 
 pub fn parse_version_req(input: &str) -> Result<VersionReq, Error> {
