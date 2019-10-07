@@ -8,7 +8,7 @@ use crate::repository::Repository;
 use failure::{Error, Fail};
 use fs2::FileExt;
 use semver::{Version, VersionReq};
-use slack_hook::{PayloadBuilder, Slack};
+use slack_hook::{AttachmentBuilder, PayloadBuilder, Slack};
 use std::fs::metadata;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -108,11 +108,15 @@ impl Binrep {
                 .iter()
                 .map(|file| format!("\n- {}", file.name))
                 .collect();
+            let files_text = format!("Files uploaded: {}", files);
             let p = PayloadBuilder::new()
                 .text(format!(
-                    "Pushed version *{}* of *{}* to artifact repository.\nFiles uploaded: {}",
-                    artifact.version, artifact_name, files
+                    "Pushed version *{}* of *{}* to artifact repository.",
+                    artifact.version, artifact_name
                 ))
+                .attachments(vec![AttachmentBuilder::new(files_text.clone())
+                    .text(format!("Files uploaded: {}", files_text))
+                    .build()?])
                 .build()?;
 
             slack.send(&p)?;
