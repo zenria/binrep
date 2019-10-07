@@ -106,9 +106,14 @@ impl Binrep {
             let files: String = artifact
                 .files
                 .iter()
-                .map(|file| format!("\n- {}", file.name))
+                .map(|file| format!("\n- `{}`", file.name))
                 .collect();
-            let files_text = format!("Files uploaded: {}", files);
+            let files_text = format!(
+                "{} file{} uploaded: {}",
+                artifact.files.len(),
+                if artifact.files.len() > 1 { "s" } else { "" },
+                files
+            );
             let p = PayloadBuilder::new()
                 .text(format!(
                     "Pushed version *{}* of *{}* to artifact repository.",
