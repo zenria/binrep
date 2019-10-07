@@ -43,7 +43,7 @@ pub fn digest_file<P: AsRef<Path>>(
 }
 
 pub struct PublishAlgorithms {
-    pub signer: Box<Signer>,
+    pub signer: Box<dyn Signer>,
     pub checksum_method: ChecksumMethod,
 }
 
@@ -76,7 +76,7 @@ impl Config {
         &self,
         signature_method: &SignatureMethod,
         key_id: &str,
-    ) -> Result<Box<Verifier>, ConfigValidationError> {
+    ) -> Result<Box<dyn Verifier>, ConfigValidationError> {
         match signature_method {
             SignatureMethod::HmacSha256
             | SignatureMethod::HmacSha384
@@ -89,7 +89,7 @@ impl Config {
     pub(crate) fn get_signer(
         &self,
         publish_parameters: &PublishParameters,
-    ) -> Result<Box<Signer>, ConfigValidationError> {
+    ) -> Result<Box<dyn Signer>, ConfigValidationError> {
         // Signer means publish parameters are mandatory:
 
         match publish_parameters.signature_method {
