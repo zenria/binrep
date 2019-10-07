@@ -115,7 +115,7 @@ impl Binrep {
                     artifact.version, artifact_name
                 ))
                 .attachments(vec![AttachmentBuilder::new(files_text.clone())
-                    .text(format!("Files uploaded: {}", files_text))
+                    .text(files_text)
                     .build()?])
                 .build()?;
 
