@@ -26,5 +26,6 @@ binrep_publish:
   only:
     - tags
   script:
-    - binrep push binrep $CI_COMMIT_TAG target/release/*
+    - chmod +x target/release/binrep
+    - target/release/binrep push binrep $CI_COMMIT_TAG target/release/*
 
