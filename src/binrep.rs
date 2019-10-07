@@ -89,7 +89,7 @@ impl Binrep {
             self.repository
                 .push_artifact(artifact_name, artifact_version, files)?;
 
-        if let Err(e) = self.send_slack_notif(artifact_name, artifact_version) {
+        if let Err(e) = self.send_slack_notif(artifact_name, &pushed_artifact) {
             warn!("Cannot send slack nocitifaction: {}", e);
         }
 
@@ -99,14 +99,19 @@ impl Binrep {
     fn send_slack_notif(
         &self,
         artifact_name: &str,
-        artifact_version: &Version,
+        artifact: &Artifact,
     ) -> Result<(), slack_hook::Error> {
         if let Some(slack_webhook_url) = &self.slack_webhook_url {
             let slack = Slack::new(slack_webhook_url.clone().as_str())?;
+            let files: String = artifact
+                .files
+                .iter()
+                .map(|file| format!("\n- {}", file.name))
+                .collect();
             let p = PayloadBuilder::new()
                 .text(format!(
-                    "Pushed version *{}* of *{}* to artifact repository.",
-                    artifact_version, artifact_name
+                    "Pushed version *{}* of *{}* to artifact repository.\nFiles uploaded: {}",
+                    artifact.version, artifact_name, files
                 ))
                 .build()?;
 
