@@ -10,7 +10,7 @@ use std::path::Path;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SlackConfiguration {
-    pub slack_webhook_url: String,
+    pub webhook_url: String,
     pub notification_on_push: Option<bool>,
 }
 

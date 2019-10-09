@@ -78,7 +78,7 @@ For publishing artifact additional config is needed:
 ```sane
 # Optional slack section
 [slack]
-slack_webhook_url = "https://hooks.slack.com/services/ABCDE/FIJH/YZELDKJlkjdflkdjsk654"
+webhook_url = "https://hooks.slack.com/services/ABCDE/FIJH/YZELDKJlkjdflkdjsk654"
 # if specified & true, send a slack message on each push
 notification_on_push = false
 

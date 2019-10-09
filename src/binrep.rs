@@ -101,7 +101,7 @@ impl Binrep {
         payload_builder: F,
     ) -> Result<(), slack_hook::Error> {
         if let Some(slack_configuration) = &self.slack_configuration {
-            let slack = Slack::new(slack_configuration.slack_webhook_url.as_str())?;
+            let slack = Slack::new(slack_configuration.webhook_url.as_str())?;
             slack.send(&payload_builder()?)
         } else {
             // slack not configured, do nothing.
