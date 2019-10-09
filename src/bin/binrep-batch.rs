@@ -140,6 +140,7 @@ mod batch {
     use crate::SlackNotifier;
     use binrep::binrep::{parse_version_req, Binrep, SyncStatus};
     use binrep::exec::exec;
+    use binrep::metadata::Artifact;
     use failure::Error;
     use semver::VersionReq;
     use slack_hook::{AttachmentBuilder, PayloadBuilder};
@@ -201,49 +202,17 @@ mod batch {
             };
             match &result.status {
                 SyncStatus::Updated => {
-                    println!("updated: {}", result.artifact);
-                    match match exec(
+                    println!("Updated: {}", result.artifact);
+                    match handle_exec_result(
+                        exec(
+                            &result.artifact,
+                            &operation.destination_dir,
+                            &operation.command,
+                        ),
+                        &slack_notifier,
+                        &operation.artifact_name,
                         &result.artifact,
-                        &operation.destination_dir,
-                        &operation.command,
                     ) {
-                        Ok(_) => slack_notifier.send(|| {
-                            let updated_text = format!(
-                                "Updated *{}* to version *{}* on *{}*.",
-                                operation.artifact_name,
-                                result.artifact.version,
-                                hostname::get_hostname().unwrap_or("#unknown".into())
-                            );
-                            Ok(
-                                PayloadBuilder::new().attachments(vec![AttachmentBuilder::new(
-                                    updated_text.clone(),
-                                )
-                                .text(updated_text)
-                                .color("good")
-                                .build()?]),
-                            )
-                        }),
-                        Err(e) => {
-                            eprintln!("Execution error: {}", e);
-                            slack_notifier.send(|| {
-                                let updated_text = format!(
-                                    "Something went wrong updating *{}* to version *{}* on *{}*.\n{}",
-                                    operation.artifact_name,
-                                    result.artifact.version,
-                                    hostname::get_hostname().unwrap_or("#unknown".into()),
-                                    e
-                                );
-                                Ok(
-                                    PayloadBuilder::new().attachments(vec![
-                                        AttachmentBuilder::new(updated_text.clone())
-                                            .text(updated_text)
-                                            .color("good")
-                                            .build()?,
-                                    ]),
-                                )
-                            })
-                        }
-                    } {
                         Ok(sent) => {
                             if sent {
                                 println!("Slack notification sent!");
@@ -260,6 +229,48 @@ mod batch {
             }
         }
         Ok(())
+    }
+
+    fn handle_exec_result(
+        exec_result: Result<(), Error>,
+        slack_notifier: &SlackNotifier,
+        artifact_name: &str,
+        artifact: &Artifact,
+    ) -> Result<bool, slack_hook::Error> {
+        let hostname = hostname::get_hostname().unwrap_or("#unknown".into());
+        match exec_result {
+            Ok(_) => slack_notifier.send(|| {
+                let updated_text = format!(
+                    "Updated *{}* to version *{}* on *{}*.",
+                    artifact_name, artifact.version, hostname
+                );
+                Ok(
+                    PayloadBuilder::new().attachments(vec![AttachmentBuilder::new(
+                        updated_text.clone(),
+                    )
+                    .text(updated_text)
+                    .color("good")
+                    .build()?]),
+                )
+            }),
+            Err(e) => {
+                eprintln!("Execution error: {}", e);
+                slack_notifier.send(|| {
+                    let updated_text = format!(
+                        "Something went wrong updating *{}* to version *{}* on *{}*.\n{}",
+                        artifact_name, artifact.version, hostname, e
+                    );
+                    Ok(
+                        PayloadBuilder::new().attachments(vec![AttachmentBuilder::new(
+                            updated_text.clone(),
+                        )
+                        .text(updated_text)
+                        .color("good")
+                        .build()?]),
+                    )
+                })
+            }
+        }
     }
 }
 
