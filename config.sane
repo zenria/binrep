@@ -1,3 +1,7 @@
+[slack]
+slack_webhook_url = "https://hooks.slack.com/services/ABCDE/FIJH/YZELDKJlkjdflkdjsk654"
+notification_on_push = true
+
 [backend]
 type = "file"
 root = "./test-repo"

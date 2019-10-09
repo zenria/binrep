@@ -1,5 +1,5 @@
 //! High level binrep API
-use crate::config::Config;
+use crate::config::{Config, SlackConfiguration};
 use crate::config_resolver::resolve_config;
 use crate::file_utils;
 use crate::file_utils::{mkdirs, mv, path_concat2, LockFile};
@@ -8,7 +8,7 @@ use crate::repository::Repository;
 use failure::{Error, Fail};
 use fs2::FileExt;
 use semver::{Version, VersionReq};
-use slack_hook::{AttachmentBuilder, PayloadBuilder, Slack};
+use slack_hook::{AttachmentBuilder, Payload, PayloadBuilder, Slack};
 use std::fs::metadata;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -16,7 +16,7 @@ use tempfile::tempdir;
 
 pub struct Binrep {
     repository: Repository,
-    slack_webhook_url: Option<String>,
+    slack_configuration: Option<SlackConfiguration>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -44,11 +44,11 @@ impl Binrep {
     }
 
     pub fn from_config(config: Config) -> Result<Binrep, Error> {
-        let slack_webhook_url = config.slack_webhook_url.clone();
+        let slack_configuration = config.slack.clone();
         let repository = Repository::new(config)?;
         Ok(Self {
             repository,
-            slack_webhook_url,
+            slack_configuration,
         })
     }
 
@@ -89,20 +89,33 @@ impl Binrep {
             self.repository
                 .push_artifact(artifact_name, artifact_version, files)?;
 
-        if let Err(e) = self.send_slack_notif(artifact_name, &pushed_artifact) {
-            warn!("Cannot send slack nocitifaction: {}", e);
+        if let Err(e) = self.send_slack_push_notif(artifact_name, &pushed_artifact) {
+            warn!("Cannot send slack notification: {}", e);
         }
 
         Ok(pushed_artifact)
     }
 
-    fn send_slack_notif(
+    pub fn send_slack_notif<F: Fn() -> Result<Payload, slack_hook::Error>>(
+        &self,
+        payload_builder: F,
+    ) -> Result<(), slack_hook::Error> {
+        if let Some(slack_configuration) = &self.slack_configuration {
+            let slack = Slack::new(slack_configuration.slack_webhook_url.as_str())?;
+            slack.send(&payload_builder()?)
+        } else {
+            // slack not configured, do nothing.
+            Ok(())
+        }
+    }
+
+    // TODO should we keep this code here or in "binrep" bin
+    fn send_slack_push_notif(
         &self,
         artifact_name: &str,
         artifact: &Artifact,
     ) -> Result<(), slack_hook::Error> {
-        if let Some(slack_webhook_url) = &self.slack_webhook_url {
-            let slack = Slack::new(slack_webhook_url.clone().as_str())?;
+        self.send_slack_notif(|| {
             let files: String = artifact
                 .files
                 .iter()
@@ -114,7 +127,7 @@ impl Binrep {
                 if artifact.files.len() > 1 { "s" } else { "" },
                 files
             );
-            let p = PayloadBuilder::new()
+            PayloadBuilder::new()
                 .text(format!(
                     "Pushed version *{}* of *{}* to artifact repository.",
                     artifact.version, artifact_name
@@ -123,11 +136,8 @@ impl Binrep {
                     .text(files_text)
                     .color("good")
                     .build()?])
-                .build()?;
-
-            slack.send(&p)?;
-        }
-        Ok(())
+                .build()
+        })
     }
 
     pub fn pull<P: AsRef<Path>>(
