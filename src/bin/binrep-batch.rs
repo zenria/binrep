@@ -41,9 +41,9 @@ pub struct SyncOperation {
 
 #[derive(Debug, Deserialize, PartialEq, Serialize, Clone)]
 pub struct SlackNotifier {
+    pub enabled: bool,
     #[serde(flatten)]
     pub webhook_config: WebhookConfig,
-    pub enabled: bool,
 }
 
 impl SlackNotifier {
@@ -74,7 +74,6 @@ struct BatchConfig {
     includes: Option<String>,
     #[serde(rename = "sync")]
     sync_operations: Vec<SyncOperation>,
-    #[serde(flatten)]
     slack: Option<SlackNotifier>,
 }
 
@@ -200,7 +199,6 @@ mod batch {
             } else {
                 default_slack_notifier.clone()
             };
-
             match &result.status {
                 SyncStatus::Updated => {
                     println!("updated: {}", result.artifact);
@@ -211,7 +209,7 @@ mod batch {
                     ) {
                         Ok(_) => slack_notifier.send(|| {
                             let updated_text = format!(
-                                "Updated {} to version {} on {}.",
+                                "Updated *{}* to version *{}* on *{}*.",
                                 operation.artifact_name,
                                 result.artifact.version,
                                 hostname::get_hostname().unwrap_or("#unknown".into())
@@ -226,10 +224,10 @@ mod batch {
                             )
                         }),
                         Err(e) => {
-                            eprintln!("Cannot send slack notification: {}", e);
+                            eprintln!("Execution error: {}", e);
                             slack_notifier.send(|| {
                                 let updated_text = format!(
-                                    "Something went wrong updating {} to version {} on {}.\n{}",
+                                    "Something went wrong updating *{}* to version *{}* on *{}*.\n{}",
                                     operation.artifact_name,
                                     result.artifact.version,
                                     hostname::get_hostname().unwrap_or("#unknown".into()),
