@@ -121,6 +121,7 @@ impl Binrep {
                 ))
                 .attachments(vec![AttachmentBuilder::new(files_text.clone())
                     .text(files_text)
+                    .color("good")
                     .build()?])
                 .build()?;
 
