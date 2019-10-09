@@ -96,13 +96,25 @@ impl Binrep {
         Ok(pushed_artifact)
     }
 
-    pub fn send_slack_notif<F: Fn() -> Result<Payload, slack_hook::Error>>(
+    pub fn send_slack_notif<F: Fn() -> Result<PayloadBuilder, slack_hook::Error>>(
         &self,
         payload_builder: F,
+        slack_configuration_override: Option<SlackConfiguration>,
     ) -> Result<(), slack_hook::Error> {
-        if let Some(slack_configuration) = &self.slack_configuration {
+        if let Some(slack_configuration) = slack_configuration_override
+            .as_ref()
+            .or(self.slack_configuration.as_ref())
+        {
             let slack = Slack::new(slack_configuration.webhook_url.as_str())?;
-            slack.send(&payload_builder()?)
+            let payload_builder = payload_builder()?;
+            let payload_builder = if let Some(channel) = &slack_configuration.channel {
+                // override channel
+                payload_builder.channel(channel)
+            } else {
+                payload_builder
+            };
+
+            slack.send(&payload_builder.build()?)
         } else {
             // slack not configured, do nothing.
             Ok(())
@@ -115,29 +127,31 @@ impl Binrep {
         artifact_name: &str,
         artifact: &Artifact,
     ) -> Result<(), slack_hook::Error> {
-        self.send_slack_notif(|| {
-            let files: String = artifact
-                .files
-                .iter()
-                .map(|file| format!("\n- `{}`", file.name))
-                .collect();
-            let files_text = format!(
-                "{} file{} uploaded: {}",
-                artifact.files.len(),
-                if artifact.files.len() > 1 { "s" } else { "" },
-                files
-            );
-            PayloadBuilder::new()
-                .text(format!(
-                    "Pushed version *{}* of *{}* to artifact repository.",
-                    artifact.version, artifact_name
-                ))
-                .attachments(vec![AttachmentBuilder::new(files_text.clone())
-                    .text(files_text)
-                    .color("good")
-                    .build()?])
-                .build()
-        })
+        self.send_slack_notif(
+            || {
+                let files: String = artifact
+                    .files
+                    .iter()
+                    .map(|file| format!("\n- `{}`", file.name))
+                    .collect();
+                let files_text = format!(
+                    "{} file{} uploaded: {}",
+                    artifact.files.len(),
+                    if artifact.files.len() > 1 { "s" } else { "" },
+                    files
+                );
+                Ok(PayloadBuilder::new()
+                    .text(format!(
+                        "Pushed version *{}* of *{}* to artifact repository.",
+                        artifact.version, artifact_name
+                    ))
+                    .attachments(vec![AttachmentBuilder::new(files_text.clone())
+                        .text(files_text)
+                        .color("good")
+                        .build()?]))
+            },
+            None,
+        )
     }
 
     pub fn pull<P: AsRef<Path>>(

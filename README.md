@@ -81,6 +81,8 @@ For publishing artifact additional config is needed:
 webhook_url = "https://hooks.slack.com/services/ABCDE/FIJH/YZELDKJlkjdflkdjsk654"
 # if specified & true, send a slack message on each push
 notification_on_push = false
+# optional channel, if specified, override default slack webhook configured channel
+channel="#ops"
 
 
 [backend]
