@@ -141,7 +141,7 @@ profile = "gitlabci"
 
 ### Metadata file format
 
-Metadata file format follows the SANE file format: https://github.com/z0mbie42/sane
+Metadata file format follows the SANE file format: https://gitlab.com/bloom42/sane/sane
 
 ### Repository structure
 
