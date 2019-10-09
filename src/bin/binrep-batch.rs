@@ -13,6 +13,7 @@ use glob::glob;
 use serde::Deserialize;
 use serde::Serialize;
 
+use binrep::slack::{SlackConfig, WebhookConfig};
 use log::debug;
 
 #[derive(StructOpt)]
@@ -34,11 +35,13 @@ pub struct SyncOperation {
     #[serde(rename = "destination")]
     pub destination_dir: String,
     pub exec: Option<String>,
+    pub slack: Option<SlackNotifier>,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct SlackNotifier {
-    pub channel: Option<String>,
+    #[serde(flatten)]
+    pub webhook_config: WebhookConfig,
     pub enabled: bool,
 }
 
@@ -48,8 +51,8 @@ struct BatchConfig {
     includes: Option<String>,
     #[serde(rename = "sync")]
     sync_operations: Vec<SyncOperation>,
-    #[serde(rename = "slack")]
-    default_slack_notifier: Option<SlackNotifier>,
+    #[serde(flatten)]
+    slack: Option<SlackNotifier>,
 }
 
 fn main() {
@@ -62,6 +65,17 @@ fn main() {
 }
 fn _main(opt: Opt) -> Result<(), Error> {
     let batch_config: BatchConfig = resolve_config(&opt.batch_configuration_file, "batch.sane")?;
+    // get root slack config
+    let slack_configuration: SlackConfig = Binrep::resolve_config(&opt.config_file)?;
+    let webhook_config: WebhookConfig = slack_configuration.into();
+    // override root config with batch config
+    let webhook_config = webhook_config.override_with(
+        batch_config
+            .slack
+            .map(|n| n.webhook_config)
+            .unwrap_or(WebhookConfig::default()),
+    );
+
     let binrep = Binrep::new(&opt.config_file)?;
 
     let operations: Vec<SyncOperation> = batch_config
@@ -91,6 +105,7 @@ fn get_operation_from_includes(includes: Option<String>) -> Vec<SyncOperation> {
 }
 
 mod batch {
+    use crate::SlackNotifier;
     use binrep::binrep::{parse_version_req, Binrep, SyncStatus};
     use binrep::exec::exec;
     use failure::Error;
@@ -103,6 +118,7 @@ mod batch {
         version_req: VersionReq,
         destination_dir: PathBuf,
         command: Option<String>,
+        slack: Option<SlackNotifier>,
     }
     impl TryFrom<super::SyncOperation> for SyncOperation {
         type Error = Error;
@@ -113,6 +129,7 @@ mod batch {
                 version_req: parse_version_req(&value.version_req)?,
                 destination_dir: PathBuf::from(value.destination_dir),
                 command: value.exec,
+                slack: value.slack,
             })
         }
     }
@@ -221,9 +238,10 @@ mod test {
                 version_req: "latest".to_string(),
                 destination_dir: "/tmp/abcde".to_string(),
                 exec: None,
+                slack: None,
             }],
             includes: None,
-            default_slack_notifier: None,
+            slack: None,
         };
         file_utils::write_sane_to_file(&file1, &operations1).unwrap();
 
@@ -235,16 +253,18 @@ mod test {
                     version_req: "1.3.0".to_string(),
                     destination_dir: "/tmp/abcdef".to_string(),
                     exec: None,
+                    slack: None,
                 },
                 SyncOperation {
                     artifact_name: "coucou2".to_string(),
                     version_req: "1.0.3".to_string(),
                     destination_dir: "/tmp/abcdsdsdef".to_string(),
                     exec: None,
+                    slack: None,
                 },
             ],
             includes: None,
-            default_slack_notifier: None,
+            slack: None,
         };
         file_utils::write_sane_to_file(&file2, &operations2).unwrap();
 

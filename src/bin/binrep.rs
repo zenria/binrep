@@ -8,7 +8,7 @@ use binrep::binrep::parse_version_req;
 use binrep::binrep::{Binrep, SyncStatus};
 use binrep::exec::exec;
 use binrep::metadata::Artifact;
-use binrep::slack::SlackConfig;
+use binrep::slack::{SlackConfig, WebhookConfig};
 use semver::{Version, VersionReq};
 use slack_hook::{AttachmentBuilder, PayloadBuilder};
 use std::fmt::Display;
@@ -120,7 +120,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
             let artifact_files = opt.files;
             let pushed = binrep.push(artifact_name, &artifact_version, &artifact_files)?;
             println!("Pushed {} {}", artifact_name, pushed);
-            match send_slack_push_notif(&slack_configuration, artifact_name, &pushed) {
+            match send_slack_push_notif(&slack_configuration.into(), artifact_name, &pushed) {
                 Ok(sent) => {
                     if sent {
                         println!("Slack notification sent.");
@@ -181,11 +181,11 @@ fn print_list<T: Display, I: IntoIterator<Item = T>>(collection: I) {
 }
 
 fn send_slack_push_notif(
-    slack_config: &SlackConfig,
+    slack: &WebhookConfig,
     artifact_name: &str,
     artifact: &Artifact,
 ) -> Result<bool, slack_hook::Error> {
-    slack_config.send(|| {
+    slack.send(|| {
         let files: String = artifact
             .files
             .iter()
