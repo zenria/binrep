@@ -15,6 +15,7 @@ use serde::Serialize;
 
 use binrep::slack::{SlackConfig, WebhookConfig};
 use log::debug;
+use slack_hook::PayloadBuilder;
 
 #[derive(StructOpt)]
 struct Opt {
@@ -38,11 +39,33 @@ pub struct SyncOperation {
     pub slack: Option<SlackNotifier>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize, Clone)]
 pub struct SlackNotifier {
     #[serde(flatten)]
     pub webhook_config: WebhookConfig,
     pub enabled: bool,
+}
+
+impl SlackNotifier {
+    fn merge_with_default(self, default: &SlackNotifier) -> Self {
+        let webhook_config = default.webhook_config.override_with(self.webhook_config);
+        let enabled = self.enabled;
+        Self {
+            webhook_config,
+            enabled,
+        }
+    }
+
+    pub fn send<F: Fn() -> slack_hook::Result<PayloadBuilder>>(
+        &self,
+        payload_builder: F,
+    ) -> slack_hook::Result<bool> {
+        if self.enabled {
+            self.webhook_config.send(payload_builder)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -64,7 +87,10 @@ fn main() {
     }
 }
 fn _main(opt: Opt) -> Result<(), Error> {
+    // ---- parse Batch config
     let batch_config: BatchConfig = resolve_config(&opt.batch_configuration_file, "batch.sane")?;
+
+    // ---- parse slack section of binrep config
     // get root slack config
     let slack_configuration: SlackConfig = Binrep::resolve_config(&opt.config_file)?;
     let webhook_config: WebhookConfig = slack_configuration.into();
@@ -72,19 +98,26 @@ fn _main(opt: Opt) -> Result<(), Error> {
     let webhook_config = webhook_config.override_with(
         batch_config
             .slack
-            .map(|n| n.webhook_config)
+            .as_ref()
+            .map(|n| n.webhook_config.clone())
             .unwrap_or(WebhookConfig::default()),
     );
+    let default_slack_notifier = SlackNotifier {
+        webhook_config,
+        enabled: batch_config.slack.map(|s| s.enabled).unwrap_or(false),
+    };
 
+    // ----- setup binrep
     let binrep = Binrep::new(&opt.config_file)?;
 
+    // ----- SYNC!!
     let operations: Vec<SyncOperation> = batch_config
         .sync_operations
         .into_iter()
         .chain(get_operation_from_includes(batch_config.includes))
         .collect();
 
-    batch::sync(&binrep, operations)?;
+    batch::sync(&binrep, operations, default_slack_notifier)?;
     Ok(())
 }
 
@@ -110,6 +143,7 @@ mod batch {
     use binrep::exec::exec;
     use failure::Error;
     use semver::VersionReq;
+    use slack_hook::{AttachmentBuilder, PayloadBuilder};
     use std::convert::{TryFrom, TryInto};
     use std::path::PathBuf;
 
@@ -120,6 +154,7 @@ mod batch {
         command: Option<String>,
         slack: Option<SlackNotifier>,
     }
+
     impl TryFrom<super::SyncOperation> for SyncOperation {
         type Error = Error;
 
@@ -134,7 +169,11 @@ mod batch {
         }
     }
 
-    pub fn sync(binrep: &Binrep, operations: Vec<super::SyncOperation>) -> Result<(), Error> {
+    pub fn sync(
+        binrep: &Binrep,
+        operations: Vec<super::SyncOperation>,
+        default_slack_notifier: SlackNotifier,
+    ) -> Result<(), Error> {
         // validate config
         let operations: Vec<SyncOperation> = operations.into_iter().try_fold(
             Vec::new(),
@@ -154,14 +193,68 @@ mod batch {
                 &operation.version_req,
                 &operation.destination_dir,
             )?;
+            let slack_notifier = if let Some(op_slack_notifier) = &operation.slack {
+                op_slack_notifier
+                    .clone()
+                    .merge_with_default(&default_slack_notifier)
+            } else {
+                default_slack_notifier.clone()
+            };
+
             match &result.status {
                 SyncStatus::Updated => {
                     println!("updated: {}", result.artifact);
-                    exec(
+                    match match exec(
                         &result.artifact,
                         &operation.destination_dir,
                         &operation.command,
-                    )?;
+                    ) {
+                        Ok(_) => slack_notifier.send(|| {
+                            let updated_text = format!(
+                                "Updated {} to version {} on {}.",
+                                operation.artifact_name,
+                                result.artifact.version,
+                                hostname::get_hostname().unwrap_or("#unknown".into())
+                            );
+                            Ok(
+                                PayloadBuilder::new().attachments(vec![AttachmentBuilder::new(
+                                    updated_text.clone(),
+                                )
+                                .text(updated_text)
+                                .color("good")
+                                .build()?]),
+                            )
+                        }),
+                        Err(e) => {
+                            eprintln!("Cannot send slack notification: {}", e);
+                            slack_notifier.send(|| {
+                                let updated_text = format!(
+                                    "Something went wrong updating {} to version {} on {}.\n{}",
+                                    operation.artifact_name,
+                                    result.artifact.version,
+                                    hostname::get_hostname().unwrap_or("#unknown".into()),
+                                    e
+                                );
+                                Ok(
+                                    PayloadBuilder::new().attachments(vec![
+                                        AttachmentBuilder::new(updated_text.clone())
+                                            .text(updated_text)
+                                            .color("good")
+                                            .build()?,
+                                    ]),
+                                )
+                            })
+                        }
+                    } {
+                        Ok(sent) => {
+                            if sent {
+                                println!("Slack notification sent!");
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Cannot send slack notification: {}", e);
+                        }
+                    }
                 }
                 SyncStatus::UpToDate => {
                     println!("Already the latest version {}", result.artifact.version);
