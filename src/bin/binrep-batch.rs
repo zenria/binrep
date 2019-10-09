@@ -36,12 +36,20 @@ pub struct SyncOperation {
     pub exec: Option<String>,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+pub struct SlackNotifier {
+    pub channel: Option<String>,
+    pub enabled: bool,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 struct BatchConfig {
     /// eg. includes=/etc/binrep/batch.d/*.sane
     includes: Option<String>,
     #[serde(rename = "sync")]
     sync_operations: Vec<SyncOperation>,
+    #[serde(rename = "slack")]
+    default_slack_notifier: Option<SlackNotifier>,
 }
 
 fn main() {
@@ -180,6 +188,7 @@ mod test {
             version="2"
             destination="/srv/www/binrep-bootstrap"
             exec="echo hello"
+            slack={ enabled=true }
         "#;
         sane::from_str::<BatchConfig>(c).unwrap();
         // test empty config
@@ -214,6 +223,7 @@ mod test {
                 exec: None,
             }],
             includes: None,
+            default_slack_notifier: None,
         };
         file_utils::write_sane_to_file(&file1, &operations1).unwrap();
 
@@ -234,6 +244,7 @@ mod test {
                 },
             ],
             includes: None,
+            default_slack_notifier: None,
         };
         file_utils::write_sane_to_file(&file2, &operations2).unwrap();
 

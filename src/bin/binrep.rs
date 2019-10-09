@@ -7,7 +7,10 @@ use structopt::StructOpt;
 use binrep::binrep::parse_version_req;
 use binrep::binrep::{Binrep, SyncStatus};
 use binrep::exec::exec;
+use binrep::metadata::Artifact;
+use binrep::slack::SlackConfig;
 use semver::{Version, VersionReq};
+use slack_hook::{AttachmentBuilder, PayloadBuilder};
 use std::fmt::Display;
 
 #[derive(StructOpt)]
@@ -87,6 +90,7 @@ fn main() {
 }
 
 fn _main(opt: Opt) -> Result<(), Error> {
+    let slack_configuration: SlackConfig = Binrep::resolve_config(&opt.config_file)?;
     let binrep = Binrep::new(&opt.config_file)?;
     match opt.command {
         // LIST----------
@@ -116,6 +120,14 @@ fn _main(opt: Opt) -> Result<(), Error> {
             let artifact_files = opt.files;
             let pushed = binrep.push(artifact_name, &artifact_version, &artifact_files)?;
             println!("Pushed {} {}", artifact_name, pushed);
+            match send_slack_push_notif(&slack_configuration, artifact_name, &pushed) {
+                Ok(sent) => {
+                    if sent {
+                        println!("Slack notification sent.");
+                    }
+                }
+                Err(e) => eprintln!("Cannot send slack notification: {}", e),
+            }
         }
         Command::Pull(opt) => {
             let artifact_name = &opt.artifact_name;
@@ -166,4 +178,33 @@ fn print_list<T: Display, I: IntoIterator<Item = T>>(collection: I) {
     for item in collection {
         println!("{}", item);
     }
+}
+
+fn send_slack_push_notif(
+    slack_config: &SlackConfig,
+    artifact_name: &str,
+    artifact: &Artifact,
+) -> Result<bool, slack_hook::Error> {
+    slack_config.send(|| {
+        let files: String = artifact
+            .files
+            .iter()
+            .map(|file| format!("\n- `{}`", file.name))
+            .collect();
+        let files_text = format!(
+            "{} file{} uploaded: {}",
+            artifact.files.len(),
+            if artifact.files.len() > 1 { "s" } else { "" },
+            files
+        );
+        Ok(PayloadBuilder::new()
+            .text(format!(
+                "Pushed version *{}* of *{}* to artifact repository.",
+                artifact.version, artifact_name
+            ))
+            .attachments(vec![AttachmentBuilder::new(files_text.clone())
+                .text(files_text)
+                .color("good")
+                .build()?]))
+    })
 }

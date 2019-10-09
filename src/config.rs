@@ -9,13 +9,6 @@ use std::io::Read;
 use std::path::Path;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SlackConfiguration {
-    pub webhook_url: String,
-    pub notification_on_push: Option<bool>,
-    pub channel: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BackendType {
     #[serde(rename = "file")]
     File,
@@ -57,7 +50,6 @@ pub struct Config {
     pub backend: Backend,
     pub publish_parameters: Option<PublishParameters>,
     pub hmac_keys: Option<HashMap<String, String>>,
-    pub slack: Option<SlackConfiguration>,
 }
 
 #[derive(Debug, Fail)]
@@ -108,7 +100,6 @@ impl Config {
             backend,
             publish_parameters,
             hmac_keys: Some(hmac_keys),
-            slack: None,
         }
     }
 }
@@ -119,10 +110,6 @@ mod test {
     fn parse_sample_config() {
         let config = super::Config::read_from_file("config.sane").unwrap();
         config.get_publish_algorithm().unwrap();
-        assert_eq!(
-            true,
-            config.slack.unwrap().notification_on_push.unwrap_or(false)
-        );
         super::Config::read_from_file("config-s3.sane")
             .unwrap()
             .backend

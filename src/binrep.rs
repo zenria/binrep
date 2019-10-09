@@ -1,5 +1,5 @@
 //! High level binrep API
-use crate::config::{Config, SlackConfiguration};
+use crate::config::Config;
 use crate::config_resolver::resolve_config;
 use crate::file_utils;
 use crate::file_utils::{mkdirs, mv, path_concat2, LockFile};
@@ -8,6 +8,7 @@ use crate::repository::Repository;
 use failure::{Error, Fail};
 use fs2::FileExt;
 use semver::{Version, VersionReq};
+use serde::de::DeserializeOwned;
 use slack_hook::{AttachmentBuilder, Payload, PayloadBuilder, Slack};
 use std::fs::metadata;
 use std::path::{Path, PathBuf};
@@ -16,7 +17,6 @@ use tempfile::tempdir;
 
 pub struct Binrep {
     repository: Repository,
-    slack_configuration: Option<SlackConfiguration>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -38,18 +38,20 @@ struct NoVersionMatching {
 }
 
 impl Binrep {
+    pub fn resolve_config<P: AsRef<Path>, D: DeserializeOwned>(
+        config_path: &Option<P>,
+    ) -> Result<D, Error> {
+        resolve_config(&config_path, "config.sane")
+    }
+
     pub fn new<P: AsRef<Path>>(config_path: &Option<P>) -> Result<Binrep, Error> {
-        let config: Config = resolve_config(&config_path, "config.sane")?;
+        let config: Config = Self::resolve_config(config_path)?;
         Self::from_config(config)
     }
 
     pub fn from_config(config: Config) -> Result<Binrep, Error> {
-        let slack_configuration = config.slack.clone();
         let repository = Repository::new(config)?;
-        Ok(Self {
-            repository,
-            slack_configuration,
-        })
+        Ok(Self { repository })
     }
 
     pub fn list_artifacts(&self) -> Result<Artifacts, Error> {
@@ -85,73 +87,8 @@ impl Binrep {
         artifact_version: &Version,
         files: &[P],
     ) -> Result<Artifact, Error> {
-        let pushed_artifact =
-            self.repository
-                .push_artifact(artifact_name, artifact_version, files)?;
-
-        if let Err(e) = self.send_slack_push_notif(artifact_name, &pushed_artifact) {
-            warn!("Cannot send slack notification: {}", e);
-        }
-
-        Ok(pushed_artifact)
-    }
-
-    pub fn send_slack_notif<F: Fn() -> Result<PayloadBuilder, slack_hook::Error>>(
-        &self,
-        payload_builder: F,
-        slack_configuration_override: Option<SlackConfiguration>,
-    ) -> Result<(), slack_hook::Error> {
-        if let Some(slack_configuration) = slack_configuration_override
-            .as_ref()
-            .or(self.slack_configuration.as_ref())
-        {
-            let slack = Slack::new(slack_configuration.webhook_url.as_str())?;
-            let payload_builder = payload_builder()?;
-            let payload_builder = if let Some(channel) = &slack_configuration.channel {
-                // override channel
-                payload_builder.channel(channel)
-            } else {
-                payload_builder
-            };
-
-            slack.send(&payload_builder.build()?)
-        } else {
-            // slack not configured, do nothing.
-            Ok(())
-        }
-    }
-
-    // TODO should we keep this code here or in "binrep" bin
-    fn send_slack_push_notif(
-        &self,
-        artifact_name: &str,
-        artifact: &Artifact,
-    ) -> Result<(), slack_hook::Error> {
-        self.send_slack_notif(
-            || {
-                let files: String = artifact
-                    .files
-                    .iter()
-                    .map(|file| format!("\n- `{}`", file.name))
-                    .collect();
-                let files_text = format!(
-                    "{} file{} uploaded: {}",
-                    artifact.files.len(),
-                    if artifact.files.len() > 1 { "s" } else { "" },
-                    files
-                );
-                Ok(PayloadBuilder::new()
-                    .text(format!(
-                        "Pushed version *{}* of *{}* to artifact repository.",
-                        artifact.version, artifact_name
-                    ))
-                    .attachments(vec![AttachmentBuilder::new(files_text.clone())
-                        .text(files_text)
-                        .color("good")
-                        .build()?]))
-            },
-            None,
-        )
+        self.repository
+            .push_artifact(artifact_name, artifact_version, files)
     }
 
     pub fn pull<P: AsRef<Path>>(

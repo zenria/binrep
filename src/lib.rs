@@ -16,3 +16,4 @@ pub mod file_utils;
 pub mod metadata;
 mod path;
 mod repository;
+pub mod slack;
