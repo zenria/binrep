@@ -263,7 +263,7 @@ mod batch {
                 eprintln!("Execution error: {}", e);
                 slack_notifier.send(|| {
                     let updated_text = format!(
-                        "Something went wrong updating *{}* to version *{}* on *{}*.\n{}",
+                        "Something went wrong updating *{}* to version *{}* on *{}*.\n```\n{}```",
                         artifact_name, artifact.version, hostname, e
                     );
                     let streams = e
