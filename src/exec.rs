@@ -1,3 +1,4 @@
+use crate::extended_exec::extexec;
 use crate::file_utils::path_concat2;
 use crate::metadata::Artifact;
 use core::borrow::Borrow;
@@ -11,48 +12,68 @@ use std::process::ExitStatus;
 pub struct ExecutionError {
     pub command: String,
     pub exit_status: ExitStatus,
+    pub output_streams: ExecutionOutputStreams,
+}
+
+#[derive(Debug)]
+pub struct ExecutionOutputStreams {
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
 }
 
 pub fn exec<P: AsRef<Path>>(
     artifact: &Artifact,
     pull_directory: P,
     command: &Option<String>,
-) -> Result<(), Error> {
+) -> Result<Option<ExecutionOutputStreams>, Error> {
     match command {
-        None => Ok(()),
+        None => Ok(None),
         Some(command) => {
             if command.contains("{}") {
+                let mut ret = ExecutionOutputStreams {
+                    stdout: vec![],
+                    stderr: vec![],
+                };
                 for file in &artifact.files {
                     let path = path_concat2(&pull_directory, &file.name);
                     let specific_command = command.replace("{}", path.to_string_lossy().borrow());
-                    exec_command(&specific_command)?;
+                    let mut streams = exec_command(&specific_command)?;
+                    ret.stderr.append(&mut streams.stderr);
+                    ret.stdout.append(&mut streams.stdout);
                 }
-                Ok(())
+                Ok(Some(ret))
             } else {
-                exec_command(command.as_str())
+                Ok(Some(exec_command(command.as_str())?))
             }
         }
     }
 }
 
-fn exec_command(command: &str) -> Result<(), Error> {
+fn exec_command(command: &str) -> Result<ExecutionOutputStreams, Error> {
     let status = if cfg!(target_os = "windows") {
-        std::process::Command::new("cmd")
-            .args(&["/C", &command])
-            .status()?
+        let mut cmd = std::process::Command::new("cmd");
+
+        cmd.args(&["/C", &command]);
+        extexec(cmd, true)?
     } else {
-        std::process::Command::new("sh")
-            .arg("-c")
-            .arg(&command)
-            .status()?
+        let mut cmd = std::process::Command::new("sh");
+        cmd.arg("-c").arg(&command);
+        extexec(cmd, true)?
     };
-    if !status.success() {
+    if !status.exit_status.success() {
         Err(ExecutionError {
             command: String::from(command),
-            exit_status: status,
+            exit_status: status.exit_status,
+            output_streams: ExecutionOutputStreams {
+                stderr: status.stderr,
+                stdout: status.stdout,
+            },
         })?
     } else {
-        Ok(())
+        Ok(ExecutionOutputStreams {
+            stderr: status.stderr,
+            stdout: status.stdout,
+        })
     }
 }
 
