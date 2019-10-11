@@ -249,6 +249,7 @@ mod batch {
                 Ok(PayloadBuilder::new().text(updated_text).attachments(
                     output_lines
                         .iter()
+                        .filter(|lines| lines.len() > 0)
                         .flat_map(|lines| {
                             let command_text = execution_commands_to_text(lines);
                             AttachmentBuilder::new(command_text.clone())
@@ -271,6 +272,7 @@ mod batch {
                     Ok(PayloadBuilder::new().text(updated_text).attachments(
                         lines
                             .iter()
+                            .filter(|lines| lines.len() > 0)
                             .flat_map(|lines| {
                                 let command_text = execution_commands_to_text(lines);
                                 AttachmentBuilder::new(command_text.clone())
