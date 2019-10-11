@@ -1,3 +1,5 @@
+use failure::_core::fmt::Formatter;
+use std::fmt::Debug;
 use std::io;
 use std::io::{Error, Read, Write};
 use std::process::{Command, ExitStatus, Stdio};
@@ -6,12 +8,24 @@ use std::process::{Command, ExitStatus, Stdio};
 pub enum Type {
     Out,
     Err,
+    Cmd,
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq)]
 pub struct Line {
     pub line_type: Type,
     pub line: Vec<u8>,
+}
+
+impl Debug for Line {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "{:?}({})",
+            self.line_type,
+            String::from_utf8_lossy(&self.line)
+        )
+    }
 }
 
 pub struct Output {
@@ -61,11 +75,6 @@ fn capture_lines<R: Read + Send + 'static, W: Write + Send + 'static>(
 }
 
 pub fn extexec(mut command: Command, tee_output_to_std: bool) -> Result<Output, io::Error> {
-    let mut child = command
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-
     let tee_stderr = if tee_output_to_std {
         Some(std::io::stderr())
     } else {
@@ -77,6 +86,19 @@ pub fn extexec(mut command: Command, tee_output_to_std: bool) -> Result<Output, 
         None
     };
     let (lines_sender, line_receiver) = crossbeam::channel::unbounded();
+
+    lines_sender
+        .send(Line {
+            line_type: Type::Cmd,
+            line: format!("{:?}", command).into_bytes(),
+        })
+        .unwrap(); // we can safely unwrap here: channels cannot be dropped ;)
+
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
     capture_lines(
         child.stdout.take().unwrap(),
         tee_stdout,
@@ -104,33 +126,49 @@ mod tests {
     use std::process::Command;
 
     impl Line {
-        fn out(s: &str) -> Line {
+        fn line(s: &str, line_type: Type) -> Line {
             Line {
-                line_type: Type::Out,
+                line_type,
                 line: s.as_bytes().to_vec(),
             }
+        }
+        fn out(s: &str) -> Line {
+            Line::line(s, Type::Out)
         }
         fn err(s: &str) -> Line {
-            Line {
-                line_type: Type::Err,
-                line: s.as_bytes().to_vec(),
-            }
+            Line::line(s, Type::Err)
+        }
+        fn cmd(s: &str) -> Line {
+            Line::line(s, Type::Cmd)
         }
     }
+
     #[test]
     fn stdout() {
         let mut cmd = Command::new("bash");
         cmd.arg("-c").arg("echo coucou");
 
         let output = extexec(cmd, false).unwrap();
-        assert_eq!(vec![Line::out("coucou")], output.output_lines);
+        assert_eq!(
+            vec![
+                Line::cmd(r#""bash" "-c" "echo coucou""#),
+                Line::out("coucou")
+            ],
+            output.output_lines
+        );
     }
     #[test]
     fn stderr() {
         let mut cmd = Command::new("bash");
         cmd.arg("-c").arg(">&2 echo coucou");
         let output = extexec(cmd, true).unwrap();
-        assert_eq!(vec![Line::err("coucou")], output.output_lines);
+        assert_eq!(
+            vec![
+                Line::cmd(r#""bash" "-c" ">&2 echo coucou""#),
+                Line::err("coucou")
+            ],
+            output.output_lines
+        );
     }
 
     #[test]
@@ -140,7 +178,12 @@ mod tests {
             .arg("echo foo\n>&2 echo coucou\nsleep 0.2;echo bar");
         let output = extexec(cmd, true).unwrap();
         assert_eq!(
-            vec![Line::out("foo"), Line::err("coucou"), Line::out("bar")],
+            vec![
+                Line::cmd(r#""bash" "-c" "echo foo\n>&2 echo coucou\nsleep 0.2;echo bar""#),
+                Line::out("foo"),
+                Line::err("coucou"),
+                Line::out("bar")
+            ],
             output.output_lines
         );
         // same without tee output
@@ -149,7 +192,12 @@ mod tests {
             .arg("echo foo\n>&2 echo coucou\nsleep 0.2;echo bar");
         let output = extexec(cmd, false).unwrap();
         assert_eq!(
-            vec![Line::out("foo"), Line::err("coucou"), Line::out("bar")],
+            vec![
+                Line::cmd(r#""bash" "-c" "echo foo\n>&2 echo coucou\nsleep 0.2;echo bar""#),
+                Line::out("foo"),
+                Line::err("coucou"),
+                Line::out("bar")
+            ],
             output.output_lines
         );
     }

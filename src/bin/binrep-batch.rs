@@ -13,7 +13,7 @@ use glob::glob;
 use serde::Deserialize;
 use serde::Serialize;
 
-use binrep::extended_exec::Line;
+use binrep::extended_exec::{Line, Type};
 use binrep::slack::{SlackConfig, WebhookConfig};
 use log::debug;
 use slack_hook::PayloadBuilder;
@@ -289,10 +289,24 @@ mod batch {
     }
 }
 
+fn type_to_string(line_type: Type) -> &'static str {
+    match line_type {
+        Type::Out => "o>",
+        Type::Err => "e>",
+        Type::Cmd => "cmd>",
+    }
+}
+
 fn execution_commands_to_text(lines: &[Line]) -> String {
     let output: String = lines
         .iter()
-        .map(|line| format!("{}\n", String::from_utf8_lossy(&line.line)))
+        .map(|line| {
+            format!(
+                "{} {}\n",
+                type_to_string(line.line_type),
+                String::from_utf8_lossy(&line.line)
+            )
+        })
         .collect();
     format!("Command execution summary:\n```\n{}```", output)
 }
