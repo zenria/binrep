@@ -189,7 +189,7 @@ mod tests {
         // same without tee output
         let mut cmd = Command::new("bash");
         cmd.arg("-c")
-            .arg("echo foo\n>&2 echo coucou\nsleep 0.2;echo bar");
+            .arg("echo foo\n>&2 echo coucou\nsleep 1;echo bar");
         let output = extexec(cmd, false).unwrap();
         assert_eq!(
             vec![
