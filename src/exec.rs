@@ -1,4 +1,4 @@
-use crate::extended_exec::extexec;
+use crate::extended_exec::{extexec, Line};
 use crate::file_utils::path_concat2;
 use crate::metadata::Artifact;
 use core::borrow::Borrow;
@@ -12,34 +12,23 @@ use std::process::ExitStatus;
 pub struct ExecutionError {
     pub command: String,
     pub exit_status: ExitStatus,
-    pub output_streams: ExecutionOutputStreams,
-}
-
-#[derive(Debug)]
-pub struct ExecutionOutputStreams {
-    pub stdout: Vec<u8>,
-    pub stderr: Vec<u8>,
+    pub output_lines: Vec<Line>,
 }
 
 pub fn exec<P: AsRef<Path>>(
     artifact: &Artifact,
     pull_directory: P,
     command: &Option<String>,
-) -> Result<Option<ExecutionOutputStreams>, Error> {
+) -> Result<Option<Vec<Line>>, Error> {
     match command {
         None => Ok(None),
         Some(command) => {
             if command.contains("{}") {
-                let mut ret = ExecutionOutputStreams {
-                    stdout: vec![],
-                    stderr: vec![],
-                };
+                let mut ret = vec![];
                 for file in &artifact.files {
                     let path = path_concat2(&pull_directory, &file.name);
                     let specific_command = command.replace("{}", path.to_string_lossy().borrow());
-                    let mut streams = exec_command(&specific_command)?;
-                    ret.stderr.append(&mut streams.stderr);
-                    ret.stdout.append(&mut streams.stdout);
+                    ret.append(&mut exec_command(&specific_command)?);
                 }
                 Ok(Some(ret))
             } else {
@@ -49,7 +38,7 @@ pub fn exec<P: AsRef<Path>>(
     }
 }
 
-fn exec_command(command: &str) -> Result<ExecutionOutputStreams, Error> {
+fn exec_command(command: &str) -> Result<Vec<Line>, Error> {
     let status = if cfg!(target_os = "windows") {
         let mut cmd = std::process::Command::new("cmd");
 
@@ -64,16 +53,10 @@ fn exec_command(command: &str) -> Result<ExecutionOutputStreams, Error> {
         Err(ExecutionError {
             command: String::from(command),
             exit_status: status.exit_status,
-            output_streams: ExecutionOutputStreams {
-                stderr: status.stderr,
-                stdout: status.stdout,
-            },
+            output_lines: status.output_lines,
         })?
     } else {
-        Ok(ExecutionOutputStreams {
-            stderr: status.stderr,
-            stdout: status.stdout,
-        })
+        Ok(status.output_lines)
     }
 }
 

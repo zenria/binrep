@@ -13,7 +13,7 @@ use glob::glob;
 use serde::Deserialize;
 use serde::Serialize;
 
-use binrep::exec::ExecutionOutputStreams;
+use binrep::extended_exec::Line;
 use binrep::slack::{SlackConfig, WebhookConfig};
 use log::debug;
 use slack_hook::PayloadBuilder;
@@ -140,7 +140,8 @@ fn get_operation_from_includes(includes: Option<String>) -> Vec<SyncOperation> {
 mod batch {
     use crate::{execution_commands_to_text, SlackNotifier};
     use binrep::binrep::{parse_version_req, Binrep, SyncStatus};
-    use binrep::exec::{exec, ExecutionError, ExecutionOutputStreams};
+    use binrep::exec::{exec, ExecutionError};
+    use binrep::extended_exec::Line;
     use binrep::metadata::Artifact;
     use failure::Error;
     use semver::VersionReq;
@@ -233,23 +234,23 @@ mod batch {
     }
 
     fn handle_exec_result(
-        exec_result: Result<Option<ExecutionOutputStreams>, Error>,
+        exec_result: Result<Option<Vec<Line>>, Error>,
         slack_notifier: &SlackNotifier,
         artifact_name: &str,
         artifact: &Artifact,
     ) -> Result<bool, slack_hook::Error> {
         let hostname = hostname::get_hostname().unwrap_or("#unknown".into());
         match exec_result {
-            Ok(streams) => slack_notifier.send(|| {
+            Ok(output_lines) => slack_notifier.send(|| {
                 let updated_text = format!(
                     "Updated *{}* to version *{}* on *{}*.",
                     artifact_name, artifact.version, hostname
                 );
                 Ok(PayloadBuilder::new().text(updated_text).attachments(
-                    streams
+                    output_lines
                         .iter()
-                        .flat_map(|streams| {
-                            let command_text = execution_commands_to_text(&streams);
+                        .flat_map(|lines| {
+                            let command_text = execution_commands_to_text(lines);
                             AttachmentBuilder::new(command_text.clone())
                                 .text(command_text)
                                 .color("good")
@@ -266,14 +267,12 @@ mod batch {
                         "Something went wrong updating *{}* to version *{}* on *{}*.\n```\n{}```",
                         artifact_name, artifact.version, hostname, e
                     );
-                    let streams = e
-                        .downcast_ref::<ExecutionError>()
-                        .map(|e| &e.output_streams);
+                    let lines = e.downcast_ref::<ExecutionError>().map(|e| &e.output_lines);
                     Ok(PayloadBuilder::new().text(updated_text).attachments(
-                        streams
+                        lines
                             .iter()
-                            .flat_map(|streams| {
-                                let command_text = execution_commands_to_text(&streams);
+                            .flat_map(|lines| {
+                                let command_text = execution_commands_to_text(lines);
                                 AttachmentBuilder::new(command_text.clone())
                                     .text(command_text)
                                     .color("danger")
@@ -288,12 +287,12 @@ mod batch {
     }
 }
 
-fn execution_commands_to_text(streams: &ExecutionOutputStreams) -> String {
-    format!(
-        "Command execution summary:\n```\n{}{}```",
-        String::from_utf8_lossy(&streams.stdout),
-        String::from_utf8_lossy(&streams.stderr)
-    )
+fn execution_commands_to_text(lines: &[Line]) -> String {
+    let output: String = lines
+        .iter()
+        .map(|line| format!("{}\n", String::from_utf8_lossy(&line.line)))
+        .collect();
+    format!("Command execution summary:\n```\n{}```", output)
 }
 
 #[cfg(test)]

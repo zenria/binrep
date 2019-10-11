@@ -10,8 +10,8 @@ pub enum Type {
 
 #[derive(Eq, PartialEq, Debug)]
 pub struct Line {
-    line_type: Type,
-    line: Vec<u8>,
+    pub line_type: Type,
+    pub line: Vec<u8>,
 }
 
 pub struct Output {
@@ -99,8 +99,8 @@ pub fn extexec(mut command: Command, tee_output_to_std: bool) -> Result<Output, 
 
 #[cfg(test)]
 mod tests {
+    use super::Type::Out;
     use super::*;
-    use crate::Type::Out;
     use std::process::Command;
 
     impl Line {
