@@ -1,36 +1,63 @@
 use std::io;
-use std::io::{Read, Write};
+use std::io::{Error, Read, Write};
 use std::process::{Command, ExitStatus, Stdio};
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum Type {
+    Out,
+    Err,
+}
+
+#[derive(Eq, PartialEq, Debug)]
+pub struct Line {
+    line_type: Type,
+    line: Vec<u8>,
+}
 
 pub struct Output {
     pub exit_status: ExitStatus,
-    pub stderr: Vec<u8>,
-    pub stdout: Vec<u8>,
+    pub output_lines: Vec<Line>,
 }
 
-fn capture_output<T: Read + Send + 'static, W: Write + Send + 'static>(
-    std_err_out: T,
-    mut duplicate_output: Option<W>,
-) -> crossbeam::Receiver<u8> {
-    let (sender, receiver) = crossbeam::channel::unbounded::<u8>();
+fn capture_lines<R: Read + Send + 'static, W: Write + Send + 'static>(
+    reader: R,
+    mut duplicate_stream: Option<W>,
+    line_sender: crossbeam::Sender<Line>,
+    line_type: Type,
+) {
     std::thread::spawn(move || {
-        for byte in std_err_out.bytes() {
-            if let Ok(byte) = byte {
-                if let Err(_) = sender.send(byte) {
-                    // channel dropped:
-                    return;
+        let mut line_buffer = Vec::new();
+        for byte in reader.bytes() {
+            match byte {
+                Ok(byte) => {
+                    // I have a byte, forward it if needed
+                    // duplicate stream
+                    if let Some(writer) = &mut duplicate_stream {
+                        let _ = writer.write(&[byte]);
+                    };
+                    if byte == '\n' as u8 {
+                        // new line, sent it to the line channel
+                        let mut line = Vec::with_capacity(line_buffer.len());
+                        line.append(&mut line_buffer);
+                        if let Err(_) = line_sender.send(Line { line, line_type }) {
+                            // channel dropped somehow
+                            return;
+                        }
+                    } else {
+                        line_buffer.push(byte);
+                    }
                 }
-                // duplicate stream
-                if let Some(writer) = &mut duplicate_output {
-                    let _ = writer.write(&[byte]);
-                };
-            } else {
-                // error reading stdout, ignore
-                return;
+                Err(_) => break,
             }
         }
+        // if there are some remaining bytes, try to send them
+        if line_buffer.len() > 0 {
+            let _ = line_sender.send(Line {
+                line: line_buffer,
+                line_type,
+            });
+        }
     });
-    receiver
 }
 
 pub fn extexec(mut command: Command, tee_output_to_std: bool) -> Result<Output, io::Error> {
@@ -49,38 +76,81 @@ pub fn extexec(mut command: Command, tee_output_to_std: bool) -> Result<Output, 
     } else {
         None
     };
-
-    let stdout_receiver = capture_output(child.stdout.take().unwrap(), tee_stdout);
-    let stderr_receiver = capture_output(child.stderr.take().unwrap(), tee_stderr);
+    let (lines_sender, line_receiver) = crossbeam::channel::unbounded();
+    capture_lines(
+        child.stdout.take().unwrap(),
+        tee_stdout,
+        lines_sender.clone(),
+        Type::Out,
+    );
+    capture_lines(
+        child.stderr.take().unwrap(),
+        tee_stderr,
+        lines_sender,
+        Type::Err,
+    );
     let exit_status = child.wait().unwrap();
-    let stdout: Vec<u8> = stdout_receiver.iter().collect();
-    let stderr: Vec<u8> = stderr_receiver.iter().collect();
+    let output_lines: Vec<_> = line_receiver.iter().collect();
     Ok(Output {
-        stderr,
-        stdout,
+        output_lines,
         exit_status,
     })
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::extended_exec::extexec;
+    use super::*;
+    use crate::Type::Out;
     use std::process::Command;
 
+    impl Line {
+        fn out(s: &str) -> Line {
+            Line {
+                line_type: Type::Out,
+                line: s.as_bytes().to_vec(),
+            }
+        }
+        fn err(s: &str) -> Line {
+            Line {
+                line_type: Type::Err,
+                line: s.as_bytes().to_vec(),
+            }
+        }
+    }
     #[test]
     fn stdout() {
         let mut cmd = Command::new("bash");
         cmd.arg("-c").arg("echo coucou");
 
         let output = extexec(cmd, false).unwrap();
-        assert_eq!("coucou\n".as_bytes(), output.stdout.as_slice());
+        assert_eq!(vec![Line::out("coucou")], output.output_lines);
     }
     #[test]
     fn stderr() {
         let mut cmd = Command::new("bash");
         cmd.arg("-c").arg(">&2 echo coucou");
         let output = extexec(cmd, true).unwrap();
-        assert_eq!("".as_bytes(), output.stdout.as_slice());
-        assert_eq!("coucou\n".as_bytes(), output.stderr.as_slice());
+        assert_eq!(vec![Line::err("coucou")], output.output_lines);
+    }
+
+    #[test]
+    fn stderrnout() {
+        let mut cmd = Command::new("bash");
+        cmd.arg("-c")
+            .arg("echo foo\n>&2 echo coucou\nsleep 0.2;echo bar");
+        let output = extexec(cmd, true).unwrap();
+        assert_eq!(
+            vec![Line::out("foo"), Line::err("coucou"), Line::out("bar")],
+            output.output_lines
+        );
+        // same without tee output
+        let mut cmd = Command::new("bash");
+        cmd.arg("-c")
+            .arg("echo foo\n>&2 echo coucou\nsleep 0.2;echo bar");
+        let output = extexec(cmd, false).unwrap();
+        assert_eq!(
+            vec![Line::out("foo"), Line::err("coucou"), Line::out("bar")],
+            output.output_lines
+        );
     }
 }
