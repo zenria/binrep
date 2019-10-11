@@ -175,11 +175,11 @@ mod tests {
     fn stderrnout() {
         let mut cmd = Command::new("bash");
         cmd.arg("-c")
-            .arg("echo foo\n>&2 echo coucou\nsleep 0.2;echo bar");
+            .arg("echo foo\n>&2 echo coucou\nsleep 1;echo bar");
         let output = extexec(cmd, true).unwrap();
         assert_eq!(
             vec![
-                Line::cmd(r#""bash" "-c" "echo foo\n>&2 echo coucou\nsleep 0.2;echo bar""#),
+                Line::cmd(r#""bash" "-c" "echo foo\n>&2 echo coucou\nsleep 1;echo bar""#),
                 Line::out("foo"),
                 Line::err("coucou"),
                 Line::out("bar")
@@ -193,7 +193,7 @@ mod tests {
         let output = extexec(cmd, false).unwrap();
         assert_eq!(
             vec![
-                Line::cmd(r#""bash" "-c" "echo foo\n>&2 echo coucou\nsleep 0.2;echo bar""#),
+                Line::cmd(r#""bash" "-c" "echo foo\n>&2 echo coucou\nsleep 1;echo bar""#),
                 Line::out("foo"),
                 Line::err("coucou"),
                 Line::out("bar")
