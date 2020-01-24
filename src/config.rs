@@ -36,6 +36,7 @@ pub struct S3BackendOpt {
     pub bucket: String,
     pub region: String,
     pub profile: Option<String>,
+    pub request_timeout_secs: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

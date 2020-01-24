@@ -1,6 +1,7 @@
 use crate::backend::{Backend, BackendError};
 use crate::config::S3BackendOpt;
 use crate::file_utils;
+use failure::_core::time::Duration;
 use failure::{Error, Fail};
 use futures_fs::{FsPool, ReadOptions};
 use rusoto_core::{ByteStream, DefaultCredentialsProvider, HttpClient, Region, RusotoError};
@@ -13,9 +14,11 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
+
 pub struct S3Backend {
     s3client: S3Client,
     bucket: String,
+    request_timeout: Duration,
 }
 
 #[derive(Fail, Debug)]
@@ -53,7 +56,6 @@ impl S3Backend {
         if let Some(profile) = &opt.profile {
             profile_provider.set_profile(profile.as_str());
         }
-
         let s3client = S3Client::new_with(
             HttpClient::new()?,
             profile_provider,
@@ -63,6 +65,7 @@ impl S3Backend {
         Ok(Self {
             s3client,
             bucket: opt.bucket.clone(),
+            request_timeout: Duration::from_secs(opt.request_timeout_secs.unwrap_or(120)),
         })
     }
 
@@ -74,6 +77,7 @@ impl S3Backend {
                 key: path.to_string(),
                 ..Default::default() // this one is hacky
             })
+            .with_timeout(self.request_timeout)
             .sync()?;
         match output.body {
             None => Err(S3BackendError::NoBodyInResponse)?,
@@ -101,7 +105,11 @@ impl Backend for S3Backend {
             acl: Some("bucket-owner-full-control".to_string()),
             ..Default::default()
         };
-        let result = self.s3client.put_object(req).sync()?;
+        let result = self
+            .s3client
+            .put_object(req)
+            .with_timeout(self.request_timeout)
+            .sync()?;
         Ok(())
     }
 
@@ -117,7 +125,10 @@ impl Backend for S3Backend {
             acl: Some("bucket-owner-full-control".to_string()),
             ..Default::default()
         };
-        self.s3client.put_object(req).sync()?;
+        self.s3client
+            .put_object(req)
+            .with_timeout(self.request_timeout)
+            .sync()?;
         Ok(())
     }
 
