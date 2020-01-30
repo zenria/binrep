@@ -239,7 +239,10 @@ mod batch {
         artifact_name: &str,
         artifact: &Artifact,
     ) -> Result<bool, slack_hook::Error> {
-        let hostname = hostname::get_hostname().unwrap_or("#unknown".into());
+        let hostname = hostname::get()
+            .ok()
+            .map(|hostname| hostname.to_string_lossy().into_owned())
+            .unwrap_or("#unknown".into());
         match exec_result {
             Ok(output_lines) => slack_notifier.send(|| {
                 let updated_text = format!(
