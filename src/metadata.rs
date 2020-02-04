@@ -44,6 +44,7 @@ pub struct File {
     pub name: String,
     pub checksum: String,
     pub checksum_method: ChecksumMethod,
+    pub unix_mode: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Copy)]
@@ -75,6 +76,9 @@ impl fmt::Display for Artifact {
         write!(f, "{} - {}", self.version, self.signature.signature)?;
         for file in &self.files {
             write!(f, "\n  {} - {}", file.name, file.checksum)?;
+            if let Some(unix_mode) = file.unix_mode {
+                write!(f, " - {:o}", unix_mode)?;
+            }
         }
         Ok(())
     }

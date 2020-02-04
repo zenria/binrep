@@ -11,6 +11,7 @@ use ring::digest::{Algorithm, Digest};
 use semver::Version;
 use std::fs::File;
 use std::io::{BufReader, ErrorKind, Read};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tempfile::{tempdir, TempDir};
 
@@ -203,6 +204,7 @@ impl Repository {
         // create the "Artifact": computes hash & signatures
         let mut digests = Vec::new();
         let mut filenames = Vec::new();
+        let mut unix_mode = Vec::new();
         let mut to_sign = String::new();
         for file in files {
             let digest = base64::encode(&crypto::digest_file(
@@ -222,6 +224,10 @@ impl Repository {
 
             filenames.push(filename);
             digests.push(digest);
+
+            let meta = std::fs::metadata(file)?;
+            let permissions = meta.permissions();
+            unix_mode.push(Some(permissions.mode() & 0o777))
         }
         let signature = Signature {
             key_id: publish_algorithm.signer.key_id(),
@@ -234,10 +240,12 @@ impl Repository {
             files: filenames
                 .iter()
                 .zip(digests.into_iter())
-                .map(|(filename, digest)| metadata::File {
+                .zip(unix_mode)
+                .map(|((filename, digest), unix_mode)| metadata::File {
                     checksum_method: publish_algorithm.checksum_method,
                     checksum: digest,
                     name: filename.to_string(),
+                    unix_mode,
                 })
                 .collect(),
             signature,
@@ -338,6 +346,13 @@ impl Repository {
             dest_path.clone(),
         )?;
 
+        if let Some(unix_mode) = file.unix_mode {
+            let metadata = std::fs::metadata(&dest_path)?;
+            let mut permissions = metadata.permissions();
+            permissions.set_mode(unix_mode & 0o777);
+            std::fs::set_permissions(&dest_path, permissions)?;
+        }
+
         // let's checksum the file.
         let digest = base64::encode(&crypto::digest_file(
             dest_path.clone(),
@@ -429,5 +444,4 @@ mod test {
         )
         .unwrap();
     }
-
 }
