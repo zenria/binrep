@@ -90,8 +90,15 @@ fn main() {
 }
 
 fn _main(opt: Opt) -> Result<(), Error> {
-    let slack_configuration: SlackConfig = Binrep::resolve_config(&opt.config_file)?;
-    let binrep = Binrep::new(&opt.config_file)?;
+    // If BINREP_CONFIG environment variable is provided, use it!
+    let env_config = std::env::var("BINREP_CONFIG");
+    let provided_config = match env_config {
+        Ok(cfg) => Some(PathBuf::from(cfg)),
+        Err(_) => opt.config_file.clone(),
+    };
+
+    let slack_configuration: SlackConfig = Binrep::resolve_config(&provided_config)?;
+    let binrep = Binrep::new(&provided_config)?;
     match opt.command {
         // LIST----------
         Command::List(opt) => match opt.artifact_name {
