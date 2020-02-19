@@ -4,11 +4,11 @@ use failure::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use binrep::binrep::parse_version_req;
-use binrep::binrep::{Binrep, SyncStatus};
-use binrep::exec::exec;
-use binrep::metadata::Artifact;
-use binrep::slack::{SlackConfig, WebhookConfig};
+use binrep_core::binrep::parse_version_req;
+use binrep_core::binrep::{Binrep, SyncStatus};
+use binrep_core::exec::exec;
+use binrep_core::metadata::Artifact;
+use binrep_core::slack::{SlackConfig, WebhookConfig};
 use semver::{Version, VersionReq};
 use slack_hook::{AttachmentBuilder, PayloadBuilder};
 use std::fmt::Display;

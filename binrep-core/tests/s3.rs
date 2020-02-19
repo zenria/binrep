@@ -1,4 +1,4 @@
-use binrep::binrep::Binrep;
+use binrep_core::binrep::Binrep;
 
 #[test]
 fn test_with_current_config() {

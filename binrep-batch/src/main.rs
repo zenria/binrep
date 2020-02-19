@@ -6,15 +6,15 @@ use failure::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use binrep::binrep::Binrep;
-use binrep::config_resolver::resolve_config;
-use binrep::file_utils;
+use binrep_core::binrep::Binrep;
+use binrep_core::config_resolver::resolve_config;
+use binrep_core::file_utils;
 use glob::glob;
 use serde::Deserialize;
 use serde::Serialize;
 
-use binrep::extended_exec::{Line, Type};
-use binrep::slack::{SlackConfig, WebhookConfig};
+use binrep_core::extended_exec::{Line, Type};
+use binrep_core::slack::{SlackConfig, WebhookConfig};
 use log::debug;
 use slack_hook::PayloadBuilder;
 
@@ -139,10 +139,10 @@ fn get_operation_from_includes(includes: Option<String>) -> Vec<SyncOperation> {
 
 mod batch {
     use crate::{execution_commands_to_text, SlackNotifier};
-    use binrep::binrep::{parse_version_req, Binrep, SyncStatus};
-    use binrep::exec::{exec, ExecutionError};
-    use binrep::extended_exec::Line;
-    use binrep::metadata::Artifact;
+    use binrep_core::binrep::{parse_version_req, Binrep, SyncStatus};
+    use binrep_core::exec::{exec, ExecutionError};
+    use binrep_core::extended_exec::Line;
+    use binrep_core::metadata::Artifact;
     use failure::Error;
     use semver::VersionReq;
     use slack_hook::{AttachmentBuilder, PayloadBuilder};
@@ -318,7 +318,7 @@ fn execution_commands_to_text(lines: &[Line]) -> String {
 mod test {
     use crate::BatchConfig;
     use crate::{get_operation_from_includes, SyncOperation};
-    use binrep::file_utils;
+    use binrep_core::file_utils;
 
     #[test]
     fn test_config() {

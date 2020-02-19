@@ -1,0 +1,21 @@
+[package]
+name = "binrep-batch"
+version = "0.10.1"
+authors = ["Philippe GASSMANN <pgassmann@scoop.it>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+binrep-core={path="../binrep-core"}
+serde={ version = "1.0", features=["derive"] }
+sane = "0.2"
+failure="0.1"
+glob="0.3"
+structopt = "0.3"
+semver={ version="0.9.0", features=["serde"]}
+slack-hook = "0.8.0"
+log="0.4"
+env_logger ="0.7"
+hostname="*"
+tempfile="3"
