@@ -53,6 +53,15 @@ Version needs to follow semver 2.0 https://semver.org/spec/v2.0.0.html format.
 
 Each artifact version can contains arbritraty number of files. 
 
+## Notes on command execution
+
+When `pull` or `sync` command is used, a shell command can be optionally given. It will be 
+executed upon successful pull or sync operation. If the given command contains `{}` it will be
+executed for each file in the artifact ; `{}` will be replaced by the path of the file on the disk.
+
+The version of the artifact is given to the shell command though the `BINREP_ARTIFACT_VERSION` 
+environment variable. 
+
 ## Configuration
 
 ### Location of config file

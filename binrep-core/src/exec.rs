@@ -5,7 +5,7 @@ use core::borrow::Borrow;
 use failure::Error;
 use failure::Fail;
 use std::path::Path;
-use std::process::ExitStatus;
+use std::process::{Command, ExitStatus};
 
 #[derive(Fail, Debug)]
 #[fail(display = "Command {} returned with status {}", command, exit_status)]
@@ -28,25 +28,30 @@ pub fn exec<P: AsRef<Path>>(
                 for file in &artifact.files {
                     let path = path_concat2(&pull_directory, &file.name);
                     let specific_command = command.replace("{}", path.to_string_lossy().borrow());
-                    ret.append(&mut exec_command(&specific_command)?);
+                    ret.append(&mut exec_command(&specific_command, artifact)?);
                 }
                 Ok(Some(ret))
             } else {
-                Ok(Some(exec_command(command.as_str())?))
+                Ok(Some(exec_command(command.as_str(), artifact)?))
             }
         }
     }
 }
 
-fn exec_command(command: &str) -> Result<Vec<Line>, Error> {
+fn add_artifact_env(cmd: &mut Command, artifact: &Artifact) {
+    cmd.env("BINREP_ARTIFACT_VERSION", artifact.version.to_string());
+}
+
+fn exec_command(command: &str, artifact: &Artifact) -> Result<Vec<Line>, Error> {
     let status = if cfg!(target_os = "windows") {
         let mut cmd = std::process::Command::new("cmd");
-
         cmd.args(&["/C", &command]);
+        add_artifact_env(&mut cmd, artifact);
         extexec(cmd, true)?
     } else {
         let mut cmd = std::process::Command::new("sh");
         cmd.arg("-c").arg(&command);
+        add_artifact_env(&mut cmd, artifact);
         extexec(cmd, true)?
     };
     if !status.exit_status.success() {
@@ -58,12 +63,4 @@ fn exec_command(command: &str) -> Result<Vec<Line>, Error> {
     } else {
         Ok(status.output_lines)
     }
-}
-
-#[cfg(test)]
-#[test]
-fn test_exec_command() {
-    exec_command("echo hello world").unwrap();
-    exec_command("echo hello world\necho foo bar").unwrap();
-    exec_command("echo hello world && echo foo bar").unwrap();
 }
