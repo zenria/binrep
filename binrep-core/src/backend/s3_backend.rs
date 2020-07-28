@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Handle, Runtime};
 use tokio::stream::StreamExt;
 use tokio::time::{timeout, Elapsed, Timeout};
 use tokio_util::codec;
@@ -25,9 +25,7 @@ pub struct S3Backend {
     s3client: S3Client,
     bucket: String,
     request_timeout: Duration,
-    // we need a refcell here because s3client needs to be borrowed for execution in tokio runtime
-    // and tokio_rt needs to be &mut to execute futures :(
-    tokio_rt: RefCell<Runtime>,
+    runtime: Runtime,
 }
 
 #[derive(Fail, Debug)]
@@ -76,12 +74,12 @@ impl S3Backend {
             profile_provider,
             Region::from_str(&opt.region)?,
         );
-
+        let runtime = tokio::runtime::Runtime::new()?;
         Ok(Self {
             s3client,
             bucket: opt.bucket.clone(),
             request_timeout: Duration::from_secs(opt.request_timeout_secs.unwrap_or(120)),
-            tokio_rt: RefCell::new(tokio::runtime::Runtime::new()?),
+            runtime,
         })
     }
 
@@ -102,17 +100,17 @@ impl S3Backend {
         &self,
         fut: F,
     ) -> Result<R, Elapsed> {
-        // the timeout function needs to be called in the context of a Tokio runtime
-        let timeout_duration = self.request_timeout.clone();
+        // the timeout function needs to be called in the context of a Tokio runtime, thus
+        // we use the lazy trick to get our future
         let timeout_future = self
-            .tokio_rt
-            .borrow_mut()
-            .block_on(lazy(|_| tokio::time::timeout(timeout_duration, fut)));
-        self.tokio_rt.borrow_mut().block_on(timeout_future)
+            .runtime
+            .handle()
+            .block_on(lazy(|_| tokio::time::timeout(self.request_timeout, fut)));
+        self.runtime.handle().block_on(timeout_future)
     }
 
     fn execute<R, F: std::future::Future<Output = R>>(&mut self, fut: F) -> R {
-        self.tokio_rt.borrow_mut().block_on(fut)
+        self.runtime.handle().block_on(fut)
     }
 
     fn write(&self, path: &str) {}
