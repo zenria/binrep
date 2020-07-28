@@ -44,6 +44,7 @@ pub struct PublishParameters {
     pub signature_method: SignatureMethod,
     pub checksum_method: ChecksumMethod,
     pub hmac_signing_key: Option<String>,
+    pub ed25519_signing_key: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -51,10 +52,27 @@ pub struct Config {
     pub backend: Backend,
     pub publish_parameters: Option<PublishParameters>,
     pub hmac_keys: Option<HashMap<String, String>>,
+    pub ed25519_keys: Option<HashMap<String, ED25519Key>>,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum ED25519Key {
+    // pkcs8 contains both public & private keys
+    SignAndVerify { pkcs8: String },
+    Verify { public_key: String },
 }
 
 #[derive(Debug, Fail)]
 pub enum ConfigValidationError {
+    #[fail(display = "ED25519 key reference '{}' not found", key_id)]
+    ED25519SigningKeyNotFound { key_id: String },
+    #[fail(display = "no ED25519 keys configured!")]
+    NoED25519KeysConfigured,
+    #[fail(display = "no ED25519 signing key configured!")]
+    NoED25519SigningKeyConfigured,
+    #[fail(display = "Malformed ED25519 key '{}'", cause)]
+    MalformedED25519Key { cause: String },
+
     #[fail(display = "hmac key reference '{}' not found", key_id)]
     HmacSigningKeyNotFound { key_id: String },
     #[fail(display = "no hmac keys configured!")]
@@ -96,11 +114,14 @@ impl Config {
             signature_method: SignatureMethod::HmacSha384,
             checksum_method: ChecksumMethod::Sha384,
             hmac_signing_key: Some("test".to_string()),
+            ed25519_signing_key: None,
         });
         Config {
             backend,
             publish_parameters,
             hmac_keys: Some(hmac_keys),
+
+            ed25519_keys: None,
         }
     }
 }

@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 mod hmac_signature;
 use hmac_signature::*;
 
+mod ed25519_signature;
+
 pub trait Signer {
     fn sign(&self, msg: &[u8]) -> Result<Vec<u8>, Error>;
 
@@ -83,6 +85,7 @@ impl Config {
             | SignatureMethod::HmacSha512 => {
                 Ok(Box::new(self.get_hmac_verifier(signature_method, key_id)?))
             }
+            SignatureMethod::ED25519 => Ok(Box::new(self.get_ed25519_verifier(key_id)?)),
         }
     }
 
@@ -98,6 +101,7 @@ impl Config {
             | SignatureMethod::HmacSha512 => {
                 Ok(Box::new(self.get_hmac_signer(publish_parameters)?))
             }
+            SignatureMethod::ED25519 => Ok(Box::new(self.get_ed25519_signer(publish_parameters)?)),
         }
     }
 }

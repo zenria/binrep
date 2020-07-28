@@ -9,6 +9,7 @@ use binrep_core::binrep::{Binrep, SyncStatus};
 use binrep_core::exec::exec;
 use binrep_core::metadata::Artifact;
 use binrep_core::slack::{SlackConfig, WebhookConfig};
+use ring::signature::KeyPair;
 use semver::{Version, VersionReq};
 use slack_hook::{AttachmentBuilder, PayloadBuilder};
 use std::fmt::Display;
@@ -56,6 +57,12 @@ struct ListOpt {
     /// artifact version requirement
     version_req: Option<String>,
 }
+#[derive(StructOpt)]
+enum UtilsOpt {
+    /// Generate a base64 encoded ED25519 key pair.
+    #[structopt(name = "gen-ed25519-keypair")]
+    GenerateED25519KeyPar,
+}
 
 #[derive(StructOpt)]
 enum Command {
@@ -69,6 +76,8 @@ enum Command {
     Sync(SyncOpt),
     #[structopt(name = "inspect")]
     Inspect(InspectOpt),
+    #[structopt(name = "utils")]
+    Utils(UtilsOpt),
 }
 
 #[derive(StructOpt)]
@@ -170,6 +179,16 @@ fn _main(opt: Opt) -> Result<(), Error> {
             let artifact = binrep.artifact(artifact_name, &artifact_version)?;
             println!("{} {}", artifact_name, artifact);
         }
+        Command::Utils(opt) => match opt {
+            UtilsOpt::GenerateED25519KeyPar => {
+                let (priv_key, pub_key) = generate_ed25519_key_pair()?;
+                println!(
+                    "pkcs8: {}\npublic_key: {}",
+                    base64::encode(&priv_key),
+                    base64::encode(&pub_key)
+                );
+            }
+        },
     }
     Ok(())
 }
@@ -214,4 +233,12 @@ fn send_slack_push_notif(
                 .color("good")
                 .build()?]))
     })
+}
+
+pub fn generate_ed25519_key_pair() -> Result<(Vec<u8>, Vec<u8>), ring::error::Unspecified> {
+    let rng = ring::rand::SystemRandom::new();
+    let pkcs8_bytes = ring::signature::Ed25519KeyPair::generate_pkcs8(&rng)?;
+    let key_pair = ring::signature::Ed25519KeyPair::from_pkcs8(pkcs8_bytes.as_ref())?;
+    let public_key = key_pair.public_key().as_ref().to_vec();
+    Ok((pkcs8_bytes.as_ref().to_vec(), public_key))
 }

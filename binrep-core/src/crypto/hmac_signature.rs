@@ -25,6 +25,9 @@ impl HmacSignatureMethod {
             SignatureMethod::HmacSha256 => Self(hmac::HMAC_SHA256),
             SignatureMethod::HmacSha384 => Self(hmac::HMAC_SHA384),
             SignatureMethod::HmacSha512 => Self(hmac::HMAC_SHA512),
+            _ => {
+                panic!("You must not call this function for something else than hmac signatures ;)")
+            }
         }
     }
     fn digest_algorithm(&self) -> Algorithm {

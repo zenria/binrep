@@ -55,6 +55,8 @@ pub enum SignatureMethod {
     HmacSha384,
     #[serde(rename = "HMAC_SHA512")]
     HmacSha512,
+    #[serde(rename = "ED25519")]
+    ED25519,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
