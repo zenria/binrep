@@ -14,7 +14,8 @@ offer an alternative when using those is not convenient.
 
 ## Status
 
-Binrep is still a work in progress.  
+Binrep is still a work in progress, but is used in production by [Scoop.it](https://www.scoop.it) to replace a bunch
+hacky bash scripts.
 
 ## Example 
 
