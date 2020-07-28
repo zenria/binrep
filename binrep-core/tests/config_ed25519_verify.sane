@@ -1,0 +1,12 @@
+[slack]
+webhook_url = "https://hooks.slack.com/services/ABCDE/FIJH/YZELDKJlkjdflkdjsk654"
+notification_on_push = true
+
+[backend]
+type = "file"
+root = "./test-repo"
+
+[ed25519_keys]
+"test-key" = {
+    public_key = "+bNTBfUsPFSuL8bRff20PgMCYzBTGOcULHPaieFC5tw="
+}

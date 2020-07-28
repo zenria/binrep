@@ -1,0 +1,22 @@
+[slack]
+webhook_url = "https://hooks.slack.com/services/ABCDE/FIJH/YZELDKJlkjdflkdjsk654"
+notification_on_push = true
+
+[backend]
+type = "file"
+root = "./test-repo"
+
+[ed25519_keys]
+"test-key" = {
+    pkcs8 = "MFMCAQEwBQYDK2VwBCIEIIs/h3QgK0hSPeYJqvNoXARyCgjuLTwMVOPdtlK3HYXBoSMDIQD5s1MF9Sw8VK4vxtF9/bQ+AwJjMFMY5xQsc9qJ4ULm3A=="
+}
+
+# Parameters used when publishing artifacts
+[publish_parameters]
+# Signature method when publishing
+signature_method = "ED25519"
+# Checksum method when publishing
+checksum_method = "SHA256"
+# Reference to ed25519_keys key when publishing
+ed25519_signing_key = "test-key"
+

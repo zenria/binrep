@@ -54,7 +54,7 @@ pub struct Config {
     pub hmac_keys: Option<HashMap<String, String>>,
     pub ed25519_keys: Option<HashMap<String, ED25519Key>>,
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum ED25519Key {
     // pkcs8 contains both public & private keys
@@ -120,8 +120,38 @@ impl Config {
             backend,
             publish_parameters,
             hmac_keys: Some(hmac_keys),
-
             ed25519_keys: None,
+        }
+    }
+
+    pub fn create_file_test_config_ed25519_publish() -> Config {
+        let dir = tempfile::tempdir().unwrap();
+        let backend = Backend {
+            backend_type: BackendType::File,
+            file_backend_opt: Some(FileBackendOpt {
+                root: dir.into_path().to_string_lossy().into(),
+            }),
+            s3_backend_opt: None,
+        };
+        let mut ed25519_keys = HashMap::new();
+        ed25519_keys.insert(
+            "test".to_string(),
+            ED25519Key::SignAndVerify {
+                pkcs8: "MFMCAQEwBQYDK2VwBCIEIIs/h3QgK0hSPeYJqvNoXARyCgjuLTwMVOPdtlK3HYXBoSMDIQD5s1MF9Sw8VK4vxtF9/bQ+AwJjMFMY5xQsc9qJ4ULm3A==".to_string()
+            }
+
+        );
+        let publish_parameters = Some(PublishParameters {
+            signature_method: SignatureMethod::ED25519,
+            checksum_method: ChecksumMethod::Sha384,
+            hmac_signing_key: None,
+            ed25519_signing_key: Some("test".to_string()),
+        });
+        Config {
+            backend,
+            publish_parameters,
+            hmac_keys: None,
+            ed25519_keys: Some(ed25519_keys),
         }
     }
 }
