@@ -128,7 +128,7 @@ checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
 
 [[package]]
 name = "binrep"
-version = "0.10.3"
+version = "0.11.0"
 dependencies = [
  "base64 0.12.3",
  "binrep-core",
@@ -143,7 +143,7 @@ dependencies = [
 
 [[package]]
 name = "binrep-batch"
-version = "0.10.3"
+version = "0.11.0"
 dependencies = [
  "binrep-core",
  "env_logger",
@@ -161,7 +161,7 @@ dependencies = [
 
 [[package]]
 name = "binrep-core"
-version = "0.10.3"
+version = "0.11.0"
 dependencies = [
  "base64 0.12.3",
  "chrono",

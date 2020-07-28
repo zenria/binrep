@@ -1,6 +1,6 @@
 [package]
 name = "binrep-core"
-version = "0.10.3"
+version = "0.11.0"
 authors = ["Philippe GASSMANN <pgassmann@scoop.it>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
