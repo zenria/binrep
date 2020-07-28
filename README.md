@@ -118,12 +118,17 @@ hmac_signing_key = "test-key",
 
 ### Available signature method
 
-`HMAC_SHA256`, `HMAC_SHA384`, `HMAC_SHA512` publisher & repository readers can agree on what key to use by using the key_id field.
+Artifacts are hashed and the associated metadata (filename+hash) is signed using some crypto signature algorithm.
+Binrep supports two kinds of algorithms: HMAC_SHAxxx (symmetric) or ED25519 (asymmetric): 
+
+`HMAC_SHA256`, `HMAC_SHA384`, `HMAC_SHA512` publisher & repository readers must agree on what key to use by using the key_id field.
+
+`ED25519` use an asymmetric key pair for signing and verifying. Only the publisher needs the private key. The right key is also
+chosen with a key_id.
 
 ### Shared HMAC-SHAxxx secret key
 
-Artifacts are hashed and the associated metadata (filename+hash) is signed using some crypto signature algorithm. 
-Currently, binrep only supports HMAC-SHAxxx signature, pull & push clients must share a secret key to verify metadata
+When using HMAC-SHAxxx signature, pull & push clients must share a secret key to verify metadata
 integrity. The signing key has an id thus, multiple keys can be configured.
 
 The key consists of 32/48/64 random bytes. It must be base64 encoded to be included in the binrep config files. 
@@ -136,6 +141,37 @@ openssl rand -base64 48
 # for HMAC-SHA512
 openssl rand -base64 64
 ````
+
+### ED25519 Asymmetric key
+
+When using ED25519 signature, pull (readers) & push (publishers) clients should be configured with resp. a public ed25519 key & 
+a private ed25519 key. 
+
+
+Sample configuration for publishing (also works when reading, the public key is derived from the pkcs8 encoded private key):
+```sane
+[ed25519_keys]
+"test-key" = {
+    pkcs8 = "MFMCAQEwBQYDK2VwBCIEIIs/h3QgK0hSPeYJqvNoXARyCgjuLTwMVOPdtlK3HYXBoSMDIQD5s1MF9Sw8VK4vxtF9/bQ+AwJjMFMY5xQsc9qJ4ULm3A=="
+}
+[publish_parameters]
+signature_method = "ED25519",
+checksum_method = "SHA256",
+ed25519_signing_key = "test-key",
+```
+
+When configuring readers you should only specify the public_key part: 
+```sane
+ [ed25519_keys]
+ "test-key" = {
+     public_key = "+bNTBfUsPFSuL8bRff20PgMCYzBTGOcULHPaieFC5tw="
+ }
+```
+
+You can generate a key pair using the following command:
+```shell script
+binrep utils gen-ed25519-keypair
+```
 
 ### AWS S3 configuration
 
