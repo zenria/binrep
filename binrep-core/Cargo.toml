@@ -16,12 +16,15 @@ semver={ version="0.10", features=["serde"]}
 base64="0.12"
 tempfile="3"
 chrono="0.4"
-rusoto_s3="0.42.0"
-rusoto_core="0.42.0"
-rusoto_credential = "0.42.0"
-futures-fs = "0.0.5"
+rusoto_s3="0.45"
+rusoto_core="0.45"
+rusoto_credential = "0.45"
 fs2="0.4.3"
 # statically link openssl to our binary so we can run on ubuntu:* even if build from a debian strech version
 openssl = { version = "0.10", features = ["vendored"] }
 slack-hook = "0.8.0"
 crossbeam="0.7"
+tokio={version="0.2", features=["time", "rt-threaded", "fs"]}
+tokio-util = "0.3"
+futures-util="0.3"
+futures="0.3"

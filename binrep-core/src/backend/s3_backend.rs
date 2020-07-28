@@ -3,8 +3,8 @@ use crate::config::S3BackendOpt;
 use crate::file_utils;
 use failure::_core::time::Duration;
 use failure::{Error, Fail};
-use futures_fs::{FsPool, ReadOptions};
-use rusoto_core::{ByteStream, DefaultCredentialsProvider, HttpClient, Region, RusotoError};
+use futures_util::stream::TryStreamExt;
+use rusoto_core::{ByteStream, HttpClient, Region, RusotoError};
 use rusoto_credential::ProfileProvider;
 use rusoto_s3::{
     GetObjectError, GetObjectRequest, PutObjectError, PutObjectRequest, S3Client, StreamingBody, S3,
@@ -14,6 +14,9 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
+use tokio::stream::StreamExt;
+use tokio::time::{timeout, Elapsed};
+use tokio_util::codec;
 
 pub struct S3Backend {
     s3client: S3Client,
@@ -50,6 +53,12 @@ impl From<S3BackendError> for BackendError {
     }
 }
 
+impl From<tokio::time::Elapsed> for BackendError {
+    fn from(e: Elapsed) -> Self {
+        BackendError::Other { cause: e.into() }
+    }
+}
+
 impl S3Backend {
     pub fn new(opt: &S3BackendOpt) -> Result<Self, Error> {
         let mut profile_provider = ProfileProvider::new()?;
@@ -70,15 +79,19 @@ impl S3Backend {
     }
 
     fn get_body(&self, path: &str) -> Result<ByteStream, BackendError> {
-        let output = self
-            .s3client
-            .get_object(GetObjectRequest {
-                bucket: self.bucket.clone(),
-                key: path.to_string(),
-                ..Default::default() // this one is hacky
-            })
-            .with_timeout(self.request_timeout)
-            .sync()?;
+        let mut basic_rt = tokio::runtime::Runtime::new()?;
+
+        let output = basic_rt.block_on(futures::future::lazy(|_| {
+            timeout(
+                self.request_timeout,
+                self.s3client.get_object(GetObjectRequest {
+                    bucket: self.bucket.clone(),
+                    key: path.to_string(),
+                    ..Default::default() // this one is hacky
+                }),
+            )
+        }));
+        let output = basic_rt.block_on(output)??;
         match output.body {
             None => Err(S3BackendError::NoBodyInResponse)?,
             Some(body) => Ok(body),
@@ -105,30 +118,35 @@ impl Backend for S3Backend {
             acl: Some("bucket-owner-full-control".to_string()),
             ..Default::default()
         };
-        let result = self
-            .s3client
-            .put_object(req)
-            .with_timeout(self.request_timeout)
-            .sync()?;
+        let mut basic_rt = tokio::runtime::Runtime::new()?;
+        let result = basic_rt.block_on(futures::future::lazy(|_| {
+            tokio::time::timeout(self.request_timeout, self.s3client.put_object(req))
+        }));
+        let result = basic_rt.block_on(result)??;
+
         Ok(())
     }
 
     fn push_file(&self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
         let meta = std::fs::metadata(&local)?;
-        let fs = FsPool::default();
-        let read_stream = fs.read(local, ReadOptions::default());
+        let mut basic_rt = tokio::runtime::Runtime::new()?;
+
+        let file = basic_rt.block_on(tokio::fs::File::open(local))?;
+        let byte_stream =
+            codec::FramedRead::new(file, codec::BytesCodec::new()).map_ok(|r| r.freeze());
+
         let req = PutObjectRequest {
             bucket: self.bucket.clone(),
             key: remote.to_string(),
             content_length: Some(meta.len() as i64),
-            body: Some(StreamingBody::new(read_stream)),
+            body: Some(StreamingBody::new(byte_stream)),
             acl: Some("bucket-owner-full-control".to_string()),
             ..Default::default()
         };
-        self.s3client
-            .put_object(req)
-            .with_timeout(self.request_timeout)
-            .sync()?;
+        let put = basic_rt.block_on(futures::future::lazy(|_| {
+            tokio::time::timeout(self.request_timeout, self.s3client.put_object(req))
+        }));
+        basic_rt.block_on(put)??;
         Ok(())
     }
 
