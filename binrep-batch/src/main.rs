@@ -108,7 +108,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
     };
 
     // ----- setup binrep
-    let binrep = Binrep::new(&opt.config_file)?;
+    let mut binrep = Binrep::new(&opt.config_file)?;
 
     // ----- SYNC!!
     let operations: Vec<SyncOperation> = batch_config
@@ -117,7 +117,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
         .chain(get_operation_from_includes(batch_config.includes))
         .collect();
 
-    batch::sync(&binrep, operations, default_slack_notifier)?;
+    batch::sync(&mut binrep, operations, default_slack_notifier)?;
     Ok(())
 }
 
@@ -172,7 +172,7 @@ mod batch {
     }
 
     pub fn sync(
-        binrep: &Binrep,
+        binrep: &mut Binrep,
         operations: Vec<super::SyncOperation>,
         default_slack_notifier: SlackNotifier,
     ) -> Result<(), Error> {

@@ -98,7 +98,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
     };
 
     let slack_configuration: SlackConfig = Binrep::resolve_config(&provided_config)?;
-    let binrep = Binrep::new(&provided_config)?;
+    let mut binrep = Binrep::new(&provided_config)?;
     match opt.command {
         // LIST----------
         Command::List(opt) => match opt.artifact_name {

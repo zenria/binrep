@@ -54,12 +54,12 @@ impl Binrep {
         Ok(Self { repository })
     }
 
-    pub fn list_artifacts(&self) -> Result<Artifacts, Error> {
+    pub fn list_artifacts(&mut self) -> Result<Artifacts, Error> {
         self.repository.list_artifacts()
     }
 
     pub fn list_artifact_versions(
-        &self,
+        &mut self,
         artifact_name: &str,
         version_req: &VersionReq,
     ) -> Result<Vec<Version>, Error> {
@@ -73,7 +73,7 @@ impl Binrep {
     }
 
     pub fn artifact(
-        &self,
+        &mut self,
         artifact_name: &str,
         artifact_version: &Version,
     ) -> Result<Artifact, Error> {
@@ -82,7 +82,7 @@ impl Binrep {
     }
 
     pub fn push<P: AsRef<Path>>(
-        &self,
+        &mut self,
         artifact_name: &str,
         artifact_version: &Version,
         files: &[P],
@@ -92,7 +92,7 @@ impl Binrep {
     }
 
     pub fn pull<P: AsRef<Path>>(
-        &self,
+        &mut self,
         artifact_name: &str,
         artifact_version: &Version,
         destination_dir: P,
@@ -107,7 +107,7 @@ impl Binrep {
     }
 
     pub fn last_version(
-        &self,
+        &mut self,
         artifact_name: &str,
         version_req: &VersionReq,
     ) -> Result<Option<Version>, Error> {
@@ -117,7 +117,7 @@ impl Binrep {
     }
 
     pub fn sync<P: AsRef<Path>>(
-        &self,
+        &mut self,
         artifact_name: &str,
         version_req: &VersionReq,
         destination_dir: P,
@@ -259,7 +259,7 @@ mod test {
 
     #[test]
     fn test_binrep() {
-        let br = Binrep::from_config(Config::create_file_test_config()).unwrap();
+        let mut br = Binrep::from_config(Config::create_file_test_config()).unwrap();
         let v1 = Version::parse("1.0.0").unwrap();
         let v12 = Version::parse("1.2.0").unwrap();
         let v2 = Version::parse("2.0.0").unwrap();
@@ -305,7 +305,7 @@ mod test {
     }
     #[test]
     fn test_alpha() {
-        let br = Binrep::from_config(Config::create_file_test_config()).unwrap();
+        let mut br = Binrep::from_config(Config::create_file_test_config()).unwrap();
         let valpha = Version::parse("1.0.0-alpha1").unwrap();
         br.push(ANAME, &valpha, &vec!["Cargo.toml"]).unwrap();
 
@@ -320,7 +320,7 @@ mod test {
 
     #[test]
     fn test_sync_file_presence() {
-        let br = Binrep::from_config(Config::create_file_test_config()).unwrap();
+        let mut br = Binrep::from_config(Config::create_file_test_config()).unwrap();
         let v1 = Version::parse("1.0.0").unwrap();
         let v12 = Version::parse("1.2.0").unwrap();
         let v2 = Version::parse("2.0.0").unwrap();

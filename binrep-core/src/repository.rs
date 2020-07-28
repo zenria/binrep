@@ -84,7 +84,7 @@ impl Repository {
     /// Initialize the repository, do nothing if the repository is already initialized.
     ///
     /// Always returns the Artifacts list
-    fn init(&self) -> Result<Artifacts, Error> {
+    fn init(&mut self) -> Result<Artifacts, Error> {
         match self.list_artifacts() {
             Ok(artifacts) => Ok(artifacts),
             Err(_) => {
@@ -95,7 +95,7 @@ impl Repository {
         }
     }
 
-    fn write_artifacts(&self, artifacts: &Artifacts) -> Result<(), Error> {
+    fn write_artifacts(&mut self, artifacts: &Artifacts) -> Result<(), Error> {
         info!("writing {}", path::artifacts());
         Ok(self
             .backend
@@ -103,7 +103,7 @@ impl Repository {
     }
 
     fn write_artifact_versions(
-        &self,
+        &mut self,
         artifact_name: &str,
         versions: &Versions,
     ) -> Result<(), Error> {
@@ -115,7 +115,7 @@ impl Repository {
     }
 
     fn write_artifact(
-        &self,
+        &mut self,
         artifact_name: &str,
         version: &Version,
         artifact: &Artifact,
@@ -128,7 +128,7 @@ impl Repository {
     }
 
     /// Initialize artifact repo, do nothing if the artifact repo is already initialized
-    fn init_artifact(&self, artifact_name: &str) -> Result<Versions, Error> {
+    fn init_artifact(&mut self, artifact_name: &str) -> Result<Versions, Error> {
         validate_artifact_name(artifact_name)?;
         match self.list_artifact_versions(artifact_name) {
             Ok(versions) => Ok(versions),
@@ -155,7 +155,7 @@ impl Repository {
         }
     }
 
-    pub fn list_artifacts(&self) -> Result<Artifacts, Error> {
+    pub fn list_artifacts(&mut self) -> Result<Artifacts, Error> {
         let artifacts_path = path::artifacts();
         info!("Reading {}", artifacts_path);
         Ok(sane::from_str::<Artifacts>(
@@ -163,7 +163,7 @@ impl Repository {
         )?)
     }
 
-    pub fn list_artifact_versions(&self, artifact_name: &str) -> Result<Versions, Error> {
+    pub fn list_artifact_versions(&mut self, artifact_name: &str) -> Result<Versions, Error> {
         validate_artifact_name(artifact_name)?;
 
         let path: String = path::artifact::versions(artifact_name);
@@ -172,7 +172,7 @@ impl Repository {
     }
 
     pub fn get_artifact(
-        &self,
+        &mut self,
         artifact_name: &str,
         artifact_version: &Version,
     ) -> Result<Artifact, Error> {
@@ -188,7 +188,7 @@ impl Repository {
     }
 
     pub fn push_artifact<P: AsRef<Path>>(
-        &self,
+        &mut self,
         artifact_name: &str,
         version: &Version,
         files: &[P],
@@ -267,7 +267,7 @@ impl Repository {
     }
 
     pub fn pull_artifact<P: AsRef<Path>>(
-        &self,
+        &mut self,
         artifact_name: &str,
         artifact_version: &Version,
         destination_dir: P,
@@ -333,7 +333,7 @@ impl Repository {
     }
 
     fn copy_to_tmpdir(
-        &self,
+        &mut self,
         artifact_name: &str,
         artifact_version: &Version,
         file: &metadata::File,
@@ -383,7 +383,7 @@ mod test {
     #[test]
     fn integration_test_file_backend() {
         let config = Config::create_file_test_config();
-        let repo = super::Repository::new(config).unwrap();
+        let mut repo = super::Repository::new(config).unwrap();
         repo.push_artifact(
             "binrep",
             &Version::parse("1.2.3-alpha").unwrap(),

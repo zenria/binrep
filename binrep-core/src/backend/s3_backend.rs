@@ -3,25 +3,31 @@ use crate::config::S3BackendOpt;
 use crate::file_utils;
 use failure::_core::time::Duration;
 use failure::{Error, Fail};
+use futures::future::lazy;
 use futures_util::stream::TryStreamExt;
 use rusoto_core::{ByteStream, HttpClient, Region, RusotoError};
 use rusoto_credential::ProfileProvider;
 use rusoto_s3::{
     GetObjectError, GetObjectRequest, PutObjectError, PutObjectRequest, S3Client, StreamingBody, S3,
 };
+use std::cell::RefCell;
 use std::default::Default;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
+use tokio::runtime::Runtime;
 use tokio::stream::StreamExt;
-use tokio::time::{timeout, Elapsed};
+use tokio::time::{timeout, Elapsed, Timeout};
 use tokio_util::codec;
 
 pub struct S3Backend {
     s3client: S3Client,
     bucket: String,
     request_timeout: Duration,
+    // we need a refcell here because s3client needs to be borrowed for execution in tokio runtime
+    // and tokio_rt needs to be &mut to execute futures :(
+    tokio_rt: RefCell<Runtime>,
 }
 
 #[derive(Fail, Debug)]
@@ -75,34 +81,45 @@ impl S3Backend {
             s3client,
             bucket: opt.bucket.clone(),
             request_timeout: Duration::from_secs(opt.request_timeout_secs.unwrap_or(120)),
+            tokio_rt: RefCell::new(tokio::runtime::Runtime::new()?),
         })
     }
 
-    fn get_body(&self, path: &str) -> Result<ByteStream, BackendError> {
-        let mut basic_rt = tokio::runtime::Runtime::new()?;
-
-        let output = basic_rt.block_on(futures::future::lazy(|_| {
-            timeout(
-                self.request_timeout,
-                self.s3client.get_object(GetObjectRequest {
-                    bucket: self.bucket.clone(),
-                    key: path.to_string(),
-                    ..Default::default() // this one is hacky
-                }),
-            )
-        }));
-        let output = basic_rt.block_on(output)??;
+    fn get_body(&mut self, path: &str) -> Result<ByteStream, BackendError> {
+        let request = self.s3client.get_object(GetObjectRequest {
+            bucket: self.bucket.clone(),
+            key: path.to_string(),
+            ..Default::default() // this one is hacky
+        });
+        let output = self.execute_with_timeout(request)??;
         match output.body {
             None => Err(S3BackendError::NoBodyInResponse)?,
             Some(body) => Ok(body),
         }
     }
 
+    fn execute_with_timeout<R, F: std::future::Future<Output = R>>(
+        &self,
+        fut: F,
+    ) -> Result<R, Elapsed> {
+        // the timeout function needs to be called in the context of a Tokio runtime
+        let timeout_duration = self.request_timeout.clone();
+        let timeout_future = self
+            .tokio_rt
+            .borrow_mut()
+            .block_on(lazy(|_| tokio::time::timeout(timeout_duration, fut)));
+        self.tokio_rt.borrow_mut().block_on(timeout_future)
+    }
+
+    fn execute<R, F: std::future::Future<Output = R>>(&mut self, fut: F) -> R {
+        self.tokio_rt.borrow_mut().block_on(fut)
+    }
+
     fn write(&self, path: &str) {}
 }
 
 impl Backend for S3Backend {
-    fn read_file(&self, path: &str) -> Result<String, BackendError> {
+    fn read_file(&mut self, path: &str) -> Result<String, BackendError> {
         let mut buf = String::new();
         self.get_body(path)?
             .into_blocking_read()
@@ -110,7 +127,7 @@ impl Backend for S3Backend {
         Ok(buf)
     }
 
-    fn create_file(&self, path: &str, data: String) -> Result<(), BackendError> {
+    fn create_file(&mut self, path: &str, data: String) -> Result<(), BackendError> {
         let req = PutObjectRequest {
             bucket: self.bucket.clone(),
             key: path.to_string(),
@@ -118,20 +135,16 @@ impl Backend for S3Backend {
             acl: Some("bucket-owner-full-control".to_string()),
             ..Default::default()
         };
-        let mut basic_rt = tokio::runtime::Runtime::new()?;
-        let result = basic_rt.block_on(futures::future::lazy(|_| {
-            tokio::time::timeout(self.request_timeout, self.s3client.put_object(req))
-        }));
-        let result = basic_rt.block_on(result)??;
+
+        self.execute_with_timeout(self.s3client.put_object(req))??;
 
         Ok(())
     }
 
-    fn push_file(&self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
+    fn push_file(&mut self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
         let meta = std::fs::metadata(&local)?;
-        let mut basic_rt = tokio::runtime::Runtime::new()?;
 
-        let file = basic_rt.block_on(tokio::fs::File::open(local))?;
+        let file = self.execute(tokio::fs::File::open(local))?;
         let byte_stream =
             codec::FramedRead::new(file, codec::BytesCodec::new()).map_ok(|r| r.freeze());
 
@@ -143,14 +156,11 @@ impl Backend for S3Backend {
             acl: Some("bucket-owner-full-control".to_string()),
             ..Default::default()
         };
-        let put = basic_rt.block_on(futures::future::lazy(|_| {
-            tokio::time::timeout(self.request_timeout, self.s3client.put_object(req))
-        }));
-        basic_rt.block_on(put)??;
+        self.execute_with_timeout(self.s3client.put_object(req))??;
         Ok(())
     }
 
-    fn pull_file(&self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
+    fn pull_file(&mut self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
         let mut file = File::create(local)?;
         let mut body = self.get_body(remote)?.into_blocking_read();
         std::io::copy(&mut body, &mut file)?;

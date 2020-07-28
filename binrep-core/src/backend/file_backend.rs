@@ -43,14 +43,14 @@ impl From<std::io::Error> for BackendError {
 }
 
 impl Backend for FileBackend {
-    fn read_file(&self, path: &str) -> Result<String, BackendError> {
+    fn read_file(&mut self, path: &str) -> Result<String, BackendError> {
         let file_path = get_path(self.root.clone(), path);
         let mut ret = String::new();
         File::open(file_path)?.read_to_string(&mut ret)?;
         Ok(ret)
     }
 
-    fn create_file(&self, path: &str, data: String) -> Result<(), BackendError> {
+    fn create_file(&mut self, path: &str, data: String) -> Result<(), BackendError> {
         let file_path = get_path(self.root.clone(), path);
         self.mkdirs(&file_path)?;
         let mut file = File::create(file_path)?;
@@ -58,14 +58,14 @@ impl Backend for FileBackend {
         Ok(())
     }
 
-    fn push_file(&self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
+    fn push_file(&mut self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
         let remote_file_path = get_path(self.root.clone(), remote);
         self.mkdirs(&remote_file_path)?;
         std::fs::copy(local, remote_file_path)?;
         Ok(())
     }
 
-    fn pull_file(&self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
+    fn pull_file(&mut self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
         let remote_file_path = get_path(self.root.clone(), remote);
         std::fs::copy(remote_file_path, local)?;
         Ok(())
@@ -113,7 +113,7 @@ mod test {
     #[allow(unused_must_use)]
     fn test_backend() {
         let root = tempdir().unwrap();
-        let bck = super::FileBackend::new(&root.into_path().to_string_lossy());
+        let mut bck = super::FileBackend::new(&root.into_path().to_string_lossy());
         let data = "This is some data";
         bck.create_file("foo/bar/some.txt", data.to_string())
             .unwrap();
