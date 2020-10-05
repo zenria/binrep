@@ -1,10 +1,12 @@
 use crate::backend::{Backend, BackendError};
 use crate::config::S3BackendOpt;
 use crate::file_utils;
+use atty::Stream;
 use failure::_core::time::Duration;
 use failure::{Error, Fail};
 use futures::future::lazy;
 use futures_util::stream::TryStreamExt;
+use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use rusoto_core::{ByteStream, HttpClient, Region, RusotoError};
 use rusoto_credential::ProfileProvider;
 use rusoto_s3::{
@@ -13,7 +15,7 @@ use rusoto_s3::{
 use std::cell::RefCell;
 use std::default::Default;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
 use tokio::runtime::{Handle, Runtime};
@@ -83,16 +85,17 @@ impl S3Backend {
         })
     }
 
-    fn get_body(&mut self, path: &str) -> Result<ByteStream, BackendError> {
+    fn get_body(&mut self, path: &str) -> Result<(ByteStream, Option<usize>), BackendError> {
         let request = self.s3client.get_object(GetObjectRequest {
             bucket: self.bucket.clone(),
             key: path.to_string(),
             ..Default::default() // this one is hacky
         });
         let output = self.execute_with_timeout(request)??;
+        let size = output.content_length.map(|i| i as usize);
         match output.body {
             None => Err(S3BackendError::NoBodyInResponse)?,
-            Some(body) => Ok(body),
+            Some(body) => Ok((body, size)),
         }
     }
 
@@ -112,14 +115,13 @@ impl S3Backend {
     fn execute<R, F: std::future::Future<Output = R>>(&mut self, fut: F) -> R {
         self.runtime.handle().block_on(fut)
     }
-
-    fn write(&self, path: &str) {}
 }
 
 impl Backend for S3Backend {
     fn read_file(&mut self, path: &str) -> Result<String, BackendError> {
         let mut buf = String::new();
         self.get_body(path)?
+            .0
             .into_blocking_read()
             .read_to_string(&mut buf)?;
         Ok(buf)
@@ -159,9 +161,97 @@ impl Backend for S3Backend {
     }
 
     fn pull_file(&mut self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
-        let mut file = File::create(local)?;
-        let mut body = self.get_body(remote)?.into_blocking_read();
+        let mut file = BufWriter::new(File::create(&local)?);
+        let (body, size) = self.get_body(remote)?;
+        let mut body = progress(
+            body.into_blocking_read(),
+            size,
+            &format!("downloading {}", remote),
+        );
+
         std::io::copy(&mut body, &mut file)?;
         Ok(())
+    }
+}
+
+fn progress<T: Read + 'static>(reader: T, length: Option<usize>, msg: &str) -> Box<dyn Read> {
+    if atty::isnt(Stream::Stderr) {
+        match length {
+            None => Box::new(reader),
+            Some(length) => Box::new(ProgressWrapper::new(
+                reader,
+                PipedProgress::new(length, msg),
+            )),
+        }
+    } else {
+        let pb = length
+            .map(|length| ProgressBar::new(length as u64))
+            .unwrap_or(ProgressBar::new_spinner());
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("[{elapsed_precise}] {bar:40.cyan/blue} {bytes:>7}/{total_bytes:7} {msg}")
+                .progress_chars("##-"),
+        );
+        pb.set_message(msg);
+        Box::new(ProgressWrapper::new(reader, pb))
+    }
+}
+
+struct PipedProgress {
+    len: usize,
+    done: usize,
+}
+impl PipedProgress {
+    fn new(len: usize, msg: &str) -> Self {
+        eprintln!(">> {}", msg);
+        Self { len, done: 0 }
+    }
+}
+
+impl Inc for PipedProgress {
+    fn inc(&mut self, delta: usize) {
+        let cur_pc = 100 * self.done / self.len;
+        self.done += delta;
+        let next_pc = 100 * self.done / self.len;
+        if cur_pc != next_pc {
+            eprintln!(
+                " {} .......... .......... .......... .......... .......... {}%",
+                HumanBytes(self.done as u64),
+                next_pc
+            )
+        }
+    }
+}
+
+trait Inc {
+    fn inc(&mut self, delta: usize);
+}
+
+impl Inc for ProgressBar {
+    fn inc(&mut self, delta: usize) {
+        ProgressBar::inc(&self, delta as u64);
+    }
+}
+
+struct ProgressWrapper<T: Read, I: Inc> {
+    reader: T,
+    pb: I,
+}
+
+impl<T: Read, I: Inc> ProgressWrapper<T, I> {
+    fn new(reader: T, pb: I) -> Self {
+        Self { reader, pb }
+    }
+}
+
+impl<T: Read, I: Inc> Read for ProgressWrapper<T, I> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self.reader.read(buf) {
+            Ok(bytes_read) => {
+                self.pb.inc(bytes_read);
+                Ok(bytes_read)
+            }
+            Err(e) => Err(e),
+        }
     }
 }

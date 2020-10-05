@@ -28,3 +28,5 @@ tokio={version="0.2", features=["time", "rt-threaded", "fs"]}
 tokio-util = "0.3"
 futures-util="0.3"
 futures="0.3"
+indicatif="0.15"
+atty="0.2"
