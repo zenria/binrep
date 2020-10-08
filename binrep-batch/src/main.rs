@@ -2,7 +2,7 @@
 
 #![allow(dead_code)]
 #![allow(unused_variables)]
-use failure::Error;
+use anyhow::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -139,11 +139,11 @@ fn get_operation_from_includes(includes: Option<String>) -> Vec<SyncOperation> {
 
 mod batch {
     use crate::{execution_commands_to_text, SlackNotifier};
+    use anyhow::Error;
     use binrep_core::binrep::{parse_version_req, Binrep, SyncStatus};
     use binrep_core::exec::{exec, ExecutionError};
     use binrep_core::extended_exec::Line;
     use binrep_core::metadata::Artifact;
-    use failure::Error;
     use semver::VersionReq;
     use slack_hook::{AttachmentBuilder, PayloadBuilder};
     use std::convert::{TryFrom, TryInto};
