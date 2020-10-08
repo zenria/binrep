@@ -10,7 +10,7 @@ edition = "2018"
 binrep-core={path="../binrep-core"}
 serde={ version = "1.0", features=["derive"] }
 sane = "0.2"
-failure="0.1"
+anyhow="1"
 glob="0.3"
 structopt = "0.3"
 semver={ version="0.10", features=["serde"]}

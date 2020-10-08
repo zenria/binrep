@@ -5,7 +5,7 @@ use crate::file_utils;
 use crate::file_utils::{mkdirs, mv, path_concat2, LockFile};
 use crate::metadata::*;
 use crate::repository::Repository;
-use failure::{Error, Fail};
+use anyhow::Error;
 use fs2::FileExt;
 use semver::{Version, VersionReq};
 use serde::de::DeserializeOwned;
@@ -31,8 +31,8 @@ pub struct SyncResult {
     pub status: SyncStatus,
 }
 
-#[derive(Fail, Debug)]
-#[fail(display = "No version is matching the requirement {}", version_req)]
+#[derive(thiserror::Error, Debug)]
+#[error("No version is matching the requirement {version_req}")]
 struct NoVersionMatching {
     version_req: VersionReq,
 }
@@ -187,8 +187,8 @@ impl Binrep {
 mod sync {
     use crate::file_utils;
     use crate::metadata::Artifact;
+    use anyhow::Error;
     use chrono::prelude::*;
-    use failure::Error;
     use semver::Version;
     use serde::{Deserialize, Serialize};
     use std::fs::File;

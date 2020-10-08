@@ -1,7 +1,6 @@
 use crate::backend::{Backend, BackendError};
 use crate::file_utils;
-use failure::Error;
-use failure::Fail;
+use anyhow::Error;
 use std::fs::File;
 use std::io::Write;
 use std::io::{ErrorKind, Read};

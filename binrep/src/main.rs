@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
-use failure::Error;
+use anyhow::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 

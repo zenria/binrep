@@ -1,5 +1,5 @@
-use failure::_core::fmt::Formatter;
 use std::fmt::Debug;
+use std::fmt::Formatter;
 use std::io;
 use std::io::{Error, Read, Write};
 use std::process::{Command, ExitStatus, Stdio};

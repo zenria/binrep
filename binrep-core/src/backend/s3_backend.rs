@@ -1,9 +1,8 @@
 use crate::backend::{Backend, BackendError};
 use crate::config::S3BackendOpt;
 use crate::file_utils;
+use anyhow::Error;
 use atty::Stream;
-use failure::_core::time::Duration;
-use failure::{Error, Fail};
 use futures::future::lazy;
 use futures_util::stream::TryStreamExt;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
@@ -18,6 +17,7 @@ use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 use tokio::runtime::{Handle, Runtime};
 use tokio::stream::StreamExt;
 use tokio::time::{timeout, Elapsed, Timeout};
@@ -30,9 +30,9 @@ pub struct S3Backend {
     runtime: Runtime,
 }
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum S3BackendError {
-    #[fail(display = "No body in response")]
+    #[error("No body in response")]
     NoBodyInResponse,
 }
 

@@ -1,19 +1,19 @@
-use failure::{Error, Fail};
+use std::error::Error;
 use std::path::PathBuf;
 
 pub mod file_backend;
 pub mod s3_backend;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, thiserror::Error)]
 pub enum BackendError {
-    #[fail(display = "resource not found")]
+    #[error("resource not found")]
     ResourceNotFound,
-    #[fail(display = "backend returned error: {}", cause)]
-    Other { cause: Error },
+    #[error("backend returned error: {cause}")]
+    Other { cause: anyhow::Error },
 }
 
-impl From<Error> for BackendError {
-    fn from(e: Error) -> Self {
+impl From<anyhow::Error> for BackendError {
+    fn from(e: anyhow::Error) -> Self {
         BackendError::Other { cause: e }
     }
 }

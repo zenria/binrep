@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 binrep-core={path="../binrep-core"}
-failure="0.1"
+anyhow="1"
 structopt = "0.3"
 semver={ version="0.10", features=["serde"]}
 slack-hook = "0.8.0"

@@ -4,7 +4,7 @@ use crate::config::PublishParameters;
 use crate::metadata::{Artifact, ChecksumMethod, SignatureMethod};
 
 use super::{Signer, Verifier};
-use failure::Error;
+use anyhow::Error;
 use ring::hkdf::KeyType;
 use ring::hmac::Algorithm;
 use ring::{digest, hmac};

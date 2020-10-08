@@ -1,4 +1,4 @@
-use failure::{Error, Fail};
+use anyhow::Error;
 use fs2::FileExt;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -7,8 +7,8 @@ use std::io::{ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
-#[derive(Fail, Debug)]
-#[fail(display = "{} is not a directory", 0)]
+#[derive(thiserror::Error, Debug)]
+#[error("{0} is not a directory")]
 pub struct PathIsNotADirectoryError(pub String);
 
 pub struct LockFile<P: AsRef<Path>> {

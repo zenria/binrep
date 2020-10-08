@@ -34,6 +34,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1fd36ffbb1fb7c834eac128ea8d0e310c5aeb635548f9d58861e1308d46e71c"
+
+[[package]]
 name = "arc-swap"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -124,10 +130,10 @@ checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
 name = "binrep"
 version = "0.11.1"
 dependencies = [
+ "anyhow",
  "base64 0.12.3",
  "binrep-core",
  "env_logger",
- "failure",
  "log",
  "ring",
  "semver 0.10.0",
@@ -139,9 +145,9 @@ dependencies = [
 name = "binrep-batch"
 version = "0.11.1"
 dependencies = [
+ "anyhow",
  "binrep-core",
  "env_logger",
- "failure",
  "glob",
  "hostname",
  "log",
@@ -157,11 +163,11 @@ dependencies = [
 name = "binrep-core"
 version = "0.11.1"
 dependencies = [
+ "anyhow",
  "atty",
  "base64 0.12.3",
  "chrono",
  "crossbeam",
- "failure",
  "fs2",
  "futures 0.3.5",
  "futures-util",
@@ -178,6 +184,7 @@ dependencies = [
  "shellexpand",
  "slack-hook",
  "tempfile",
+ "thiserror",
  "tokio 0.2.22",
  "tokio-util",
 ]
@@ -2290,6 +2297,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 dependencies = [
  "unicode-width",
+]
+
+[[package]]
+name = "thiserror"
+version = "1.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "318234ffa22e0920fe9a40d7b8369b5f649d490980cf7aadcf1eb91594869b42"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cae2447b6282786c3493999f40a9be2a6ad20cb8bd268b0a0dbf5a065535c0ab"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

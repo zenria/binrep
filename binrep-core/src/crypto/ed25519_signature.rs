@@ -1,7 +1,7 @@
 use crate::config::{Config, ConfigValidationError, ED25519Key, PublishParameters};
 use crate::crypto::{Signer, Verifier};
 use crate::metadata::SignatureMethod;
-use failure::Error;
+use anyhow::Error;
 use ring::signature;
 use ring::signature::{KeyPair, UnparsedPublicKey};
 use std::collections::hash_map::RandomState;

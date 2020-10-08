@@ -1,6 +1,6 @@
 use crate::file_utils;
 use crate::metadata::{ChecksumMethod, SignatureMethod};
-use failure::{Error, Fail};
+use anyhow::Error;
 use rusoto_core::Region;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -62,31 +62,28 @@ pub enum ED25519Key {
     Verify { public_key: String },
 }
 
-#[derive(Debug, Fail)]
+#[derive(Debug, thiserror::Error)]
 pub enum ConfigValidationError {
-    #[fail(display = "ED25519 key reference '{}' not found", key_id)]
+    #[error("ED25519 key reference '{key_id}' not found")]
     ED25519SigningKeyNotFound { key_id: String },
-    #[fail(display = "no ED25519 keys configured!")]
+    #[error("no ED25519 keys configured!")]
     NoED25519KeysConfigured,
-    #[fail(display = "no ED25519 signing key configured!")]
+    #[error("no ED25519 signing key configured!")]
     NoED25519SigningKeyConfigured,
-    #[fail(display = "Malformed ED25519 key '{}'", cause)]
+    #[error("Malformed ED25519 key '{cause}'")]
     MalformedED25519Key { cause: String },
 
-    #[fail(display = "hmac key reference '{}' not found", key_id)]
+    #[error("hmac key reference '{key_id}' not found")]
     HmacSigningKeyNotFound { key_id: String },
-    #[fail(display = "no hmac keys configured!")]
+    #[error("no hmac keys configured!")]
     NoHmacKeysConfigured,
-    #[fail(display = "no hmac signing keys configured!")]
+    #[error("no hmac signing keys configured!")]
     NoHmacSigningKeysConfigured,
-    #[fail(display = "no publish parameters")]
+    #[error("no publish parameters")]
     NoPublishParameters,
-    #[fail(
-        display = "found invalid hmac key (needs to be 32/48/64 bytes long base64 encoded) {}",
-        _0
-    )]
+    #[error("found invalid hmac key (needs to be 32/48/64 bytes long base64 encoded) {0}")]
     InvalidHmacKey(String),
-    #[fail(display = "invalid base 64 encoded string: {}", _0)]
+    #[error("invalid base 64 encoded string: {0}")]
     InvalidBase64Encoding(String),
 }
 

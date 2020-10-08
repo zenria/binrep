@@ -5,8 +5,8 @@ use crate::config::{BackendType, Config};
 use crate::crypto::Signer;
 use crate::metadata::{Artifact, Artifacts, ChecksumMethod, Signature, SignatureMethod, Versions};
 use crate::path::artifacts;
+use anyhow::Error;
 use core::borrow::Borrow;
-use failure::{Error, Fail};
 use ring::digest::{Algorithm, Digest};
 use semver::Version;
 use std::fs::File;
@@ -27,21 +27,21 @@ pub struct Repository {
     config: Config,
 }
 
-#[derive(Debug, Fail)]
+#[derive(Debug, thiserror::Error)]
 pub enum RepositoryError {
-    #[fail(display = "Wrong artifact naming, only alphanumeric characters and -_. are allowed")]
+    #[error("Wrong artifact naming, only alphanumeric characters and -_. are allowed")]
     ArtifactNameError,
-    #[fail(display = "Artifact version already exists")]
+    #[error("Artifact version already exists")]
     ArtifactVersionAlreadyExists,
-    #[fail(display = "Wrong artifact signature")]
+    #[error("Wrong artifact signature")]
     WrongArtifactSignature,
-    #[fail(display = "Wrong file checksum for {}", _0)]
+    #[error("Wrong file checksum for {0}")]
     WrongFileChecksum(String),
-    #[fail(display = "Destination file already exists {}", _0)]
+    #[error("Destination file already exists {0}")]
     DestinationFileAlreadyExists(String),
-    #[fail(display = "File backend root is missing")]
+    #[error("File backend root is missing")]
     MissingFileBackendRoot,
-    #[fail(display = "Missing S3 configuration")]
+    #[error("Missing S3 configuration")]
     MissingS3Configuration,
 }
 

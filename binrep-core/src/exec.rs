@@ -1,14 +1,13 @@
 use crate::extended_exec::{extexec, Line};
 use crate::file_utils::path_concat2;
 use crate::metadata::Artifact;
+use anyhow::Error;
 use core::borrow::Borrow;
-use failure::Error;
-use failure::Fail;
 use std::path::Path;
 use std::process::{Command, ExitStatus};
 
-#[derive(Fail, Debug)]
-#[fail(display = "Command {} returned with status {}", command, exit_status)]
+#[derive(thiserror::Error, Debug)]
+#[error("Command {command} returned with status {exit_status}")]
 pub struct ExecutionError {
     pub command: String,
     pub exit_status: ExitStatus,

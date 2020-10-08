@@ -2,7 +2,7 @@ use crate::config::Config;
 use crate::config::ConfigValidationError;
 use crate::config::PublishParameters;
 use crate::metadata::{Artifact, ChecksumMethod, SignatureMethod};
-use failure::Error;
+use anyhow::Error;
 use ring::hmac::sign;
 use ring::{digest, hmac, rand};
 use std::fs::File;
