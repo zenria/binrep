@@ -1,9 +1,11 @@
-use crate::backend::{Backend, BackendError};
+use crate::backend::{Backend, BackendError, ProgressReporter};
 use crate::config::S3BackendOpt;
 use crate::file_utils;
+use crate::progress::{ProgressReaderAdapter, ProgressReaderAsyncAdapter};
 use anyhow::Error;
 use atty::Stream;
 use futures::future::lazy;
+use futures_util::core_reexport::marker::PhantomData;
 use futures_util::stream::TryStreamExt;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use rusoto_core::{ByteStream, HttpClient, Region, RusotoError};
@@ -23,11 +25,12 @@ use tokio::stream::StreamExt;
 use tokio::time::{timeout, Elapsed, Timeout};
 use tokio_util::codec;
 
-pub struct S3Backend {
+pub struct S3Backend<T: ProgressReporter> {
     s3client: S3Client,
     bucket: String,
     request_timeout: Duration,
     runtime: Runtime,
+    _progress_reporter: PhantomData<T>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -65,7 +68,7 @@ impl From<tokio::time::Elapsed> for BackendError {
     }
 }
 
-impl S3Backend {
+impl<T: ProgressReporter> S3Backend<T> {
     pub fn new(opt: &S3BackendOpt) -> Result<Self, Error> {
         let mut profile_provider = ProfileProvider::new()?;
         if let Some(profile) = &opt.profile {
@@ -82,6 +85,7 @@ impl S3Backend {
             bucket: opt.bucket.clone(),
             request_timeout: Duration::from_secs(opt.request_timeout_secs.unwrap_or(120)),
             runtime,
+            _progress_reporter: PhantomData,
         })
     }
 
@@ -117,12 +121,15 @@ impl S3Backend {
     }
 }
 
-impl Backend for S3Backend {
+impl<T> Backend<T> for S3Backend<T>
+where
+    T: ProgressReporter,
+    T::Output: Send + Sync + 'static,
+{
     fn read_file(&mut self, path: &str) -> Result<String, BackendError> {
         let mut buf = String::new();
-        self.get_body(path)?
-            .0
-            .into_blocking_read()
+        let progress = T::unnamed_ticker();
+        ProgressReaderAdapter::new(self.get_body(path)?.0.into_blocking_read(), progress)
             .read_to_string(&mut buf)?;
         Ok(buf)
     }
@@ -144,7 +151,12 @@ impl Backend for S3Backend {
     fn push_file(&mut self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
         let meta = std::fs::metadata(&local)?;
 
+        let progress = T::create(
+            Some(format!("Uploading to {}", remote)),
+            Some(meta.len() as usize),
+        );
         let file = self.execute(tokio::fs::File::open(local))?;
+        let file = ProgressReaderAsyncAdapter::new(file, progress);
         let byte_stream =
             codec::FramedRead::new(file, codec::BytesCodec::new()).map_ok(|r| r.freeze());
 
@@ -163,95 +175,12 @@ impl Backend for S3Backend {
     fn pull_file(&mut self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
         let mut file = BufWriter::new(File::create(&local)?);
         let (body, size) = self.get_body(remote)?;
-        let mut body = progress(
+        let mut body = ProgressReaderAdapter::new(
             body.into_blocking_read(),
-            size,
-            &format!("downloading {}", remote),
+            T::create(Some(format!("downloading {}", remote)), size),
         );
 
         std::io::copy(&mut body, &mut file)?;
         Ok(())
-    }
-}
-
-fn progress<T: Read + 'static>(reader: T, length: Option<usize>, msg: &str) -> Box<dyn Read> {
-    if atty::isnt(Stream::Stderr) {
-        match length {
-            None => Box::new(reader),
-            Some(length) => Box::new(ProgressWrapper::new(
-                reader,
-                PipedProgress::new(length, msg),
-            )),
-        }
-    } else {
-        let pb = length
-            .map(|length| ProgressBar::new(length as u64))
-            .unwrap_or(ProgressBar::new_spinner());
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template("[{elapsed_precise}] {bar:40.cyan/blue} {bytes:>7}/{total_bytes:7} {msg}")
-                .progress_chars("##-"),
-        );
-        pb.set_message(msg);
-        Box::new(ProgressWrapper::new(reader, pb))
-    }
-}
-
-struct PipedProgress {
-    len: usize,
-    done: usize,
-}
-impl PipedProgress {
-    fn new(len: usize, msg: &str) -> Self {
-        eprintln!(">> {}", msg);
-        Self { len, done: 0 }
-    }
-}
-
-impl Inc for PipedProgress {
-    fn inc(&mut self, delta: usize) {
-        let cur_pc = 100 * self.done / self.len;
-        self.done += delta;
-        let next_pc = 100 * self.done / self.len;
-        if cur_pc != next_pc {
-            eprintln!(
-                " {} .......... .......... .......... .......... .......... {}%",
-                HumanBytes(self.done as u64),
-                next_pc
-            )
-        }
-    }
-}
-
-trait Inc {
-    fn inc(&mut self, delta: usize);
-}
-
-impl Inc for ProgressBar {
-    fn inc(&mut self, delta: usize) {
-        ProgressBar::inc(&self, delta as u64);
-    }
-}
-
-struct ProgressWrapper<T: Read, I: Inc> {
-    reader: T,
-    pb: I,
-}
-
-impl<T: Read, I: Inc> ProgressWrapper<T, I> {
-    fn new(reader: T, pb: I) -> Self {
-        Self { reader, pb }
-    }
-}
-
-impl<T: Read, I: Inc> Read for ProgressWrapper<T, I> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match self.reader.read(buf) {
-            Ok(bytes_read) => {
-                self.pb.inc(bytes_read);
-                Ok(bytes_read)
-            }
-            Err(e) => Err(e),
-        }
     }
 }

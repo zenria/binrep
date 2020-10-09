@@ -8,12 +8,13 @@ use structopt::StructOpt;
 
 use binrep_core::binrep::Binrep;
 use binrep_core::config_resolver::resolve_config;
-use binrep_core::file_utils;
+use binrep_core::{binrep, file_utils};
 use glob::glob;
 use serde::Deserialize;
 use serde::Serialize;
 
 use binrep_core::extended_exec::{Line, Type};
+use binrep_core::progress::InteractiveProgressReporter;
 use binrep_core::slack::{SlackConfig, WebhookConfig};
 use log::debug;
 use slack_hook::PayloadBuilder;
@@ -92,7 +93,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
 
     // ---- parse slack section of binrep config
     // get root slack config
-    let slack_configuration: SlackConfig = Binrep::resolve_config(&opt.config_file)?;
+    let slack_configuration: SlackConfig = binrep::resolve_config(&opt.config_file)?;
     let webhook_config: WebhookConfig = slack_configuration.into();
     // override root config with batch config
     let webhook_config = webhook_config.override_with(
@@ -108,7 +109,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
     };
 
     // ----- setup binrep
-    let mut binrep = Binrep::new(&opt.config_file)?;
+    let mut binrep = Binrep::<InteractiveProgressReporter>::new(&opt.config_file)?;
 
     // ----- SYNC!!
     let operations: Vec<SyncOperation> = batch_config
@@ -144,6 +145,7 @@ mod batch {
     use binrep_core::exec::{exec, ExecutionError};
     use binrep_core::extended_exec::Line;
     use binrep_core::metadata::Artifact;
+    use binrep_core::progress::ProgressReporter;
     use semver::VersionReq;
     use slack_hook::{AttachmentBuilder, PayloadBuilder};
     use std::convert::{TryFrom, TryInto};
@@ -171,11 +173,15 @@ mod batch {
         }
     }
 
-    pub fn sync(
-        binrep: &mut Binrep,
+    pub fn sync<T>(
+        binrep: &mut Binrep<T>,
         operations: Vec<super::SyncOperation>,
         default_slack_notifier: SlackNotifier,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error>
+    where
+        T: ProgressReporter + 'static,
+        T::Output: Send + Sync + 'static,
+    {
         // validate config
         let operations: Vec<SyncOperation> = operations.into_iter().try_fold(
             Vec::new(),

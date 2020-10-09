@@ -4,10 +4,11 @@ use anyhow::Error;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use binrep_core::binrep::parse_version_req;
+use binrep_core::binrep::{parse_version_req, resolve_config};
 use binrep_core::binrep::{Binrep, SyncStatus};
 use binrep_core::exec::exec;
 use binrep_core::metadata::Artifact;
+use binrep_core::progress::InteractiveProgressReporter;
 use binrep_core::slack::{SlackConfig, WebhookConfig};
 use ring::signature::KeyPair;
 use semver::{Version, VersionReq};
@@ -106,8 +107,8 @@ fn _main(opt: Opt) -> Result<(), Error> {
         Err(_) => opt.config_file.clone(),
     };
 
-    let slack_configuration: SlackConfig = Binrep::resolve_config(&provided_config)?;
-    let mut binrep = Binrep::new(&provided_config)?;
+    let slack_configuration: SlackConfig = resolve_config(&provided_config)?;
+    let mut binrep = Binrep::<InteractiveProgressReporter>::new(&provided_config)?;
     match opt.command {
         // LIST----------
         Command::List(opt) => match opt.artifact_name {

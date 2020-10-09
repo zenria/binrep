@@ -128,7 +128,7 @@ checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
 
 [[package]]
 name = "binrep"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "anyhow",
  "base64 0.12.3",
@@ -143,7 +143,7 @@ dependencies = [
 
 [[package]]
 name = "binrep-batch"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "anyhow",
  "binrep-core",
@@ -161,7 +161,7 @@ dependencies = [
 
 [[package]]
 name = "binrep-core"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -174,6 +174,7 @@ dependencies = [
  "indicatif",
  "log",
  "openssl",
+ "pin-project 1.0.0-alpha.1",
  "ring",
  "rusoto_core",
  "rusoto_credential",
@@ -749,7 +750,7 @@ dependencies = [
  "futures-sink",
  "futures-task",
  "memchr",
- "pin-project",
+ "pin-project 0.4.26",
  "pin-utils",
  "proc-macro-hack",
  "proc-macro-nested",
@@ -994,7 +995,7 @@ dependencies = [
  "httparse",
  "httpdate",
  "itoa",
- "pin-project",
+ "pin-project 0.4.26",
  "socket2",
  "tokio 0.2.22",
  "tower-service",
@@ -1434,7 +1435,16 @@ version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13fbdfd6bdee3dc9be46452f86af4a4072975899cf8592466668620bebfbcc17"
 dependencies = [
- "pin-project-internal",
+ "pin-project-internal 0.4.26",
+]
+
+[[package]]
+name = "pin-project"
+version = "1.0.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20dda2b44d8afee87626480b5cd5eb17929d934e5582b1a57aed5515b16960b7"
+dependencies = [
+ "pin-project-internal 1.0.0-alpha.1",
 ]
 
 [[package]]
@@ -1442,6 +1452,17 @@ name = "pin-project-internal"
 version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c82fb1329f632c3552cf352d14427d57a511b1cf41db93b3a7d77906a82dcc8e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "pin-project-internal"
+version = "1.0.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed6b4ac0bd482709ab1f95dbee1b31ac828cec370d917026ca73be216bee29a5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1812,7 +1833,7 @@ dependencies = [
  "log",
  "md5",
  "percent-encoding 2.1.0",
- "pin-project",
+ "pin-project 0.4.26",
  "rusoto_credential",
  "rusoto_signature",
  "rustc_version",
@@ -1833,7 +1854,7 @@ dependencies = [
  "dirs",
  "futures 0.3.5",
  "hyper 0.13.8",
- "pin-project",
+ "pin-project 0.4.26",
  "regex",
  "serde",
  "serde_json",
@@ -1871,7 +1892,7 @@ dependencies = [
  "log",
  "md5",
  "percent-encoding 2.1.0",
- "pin-project",
+ "pin-project 0.4.26",
  "rusoto_credential",
  "rustc_version",
  "serde",

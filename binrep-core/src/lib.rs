@@ -16,5 +16,6 @@ pub mod extended_exec;
 pub mod file_utils;
 pub mod metadata;
 mod path;
+pub mod progress;
 mod repository;
 pub mod slack;

@@ -1,3 +1,4 @@
+use crate::progress::ProgressReporter;
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -18,7 +19,7 @@ impl From<anyhow::Error> for BackendError {
     }
 }
 
-pub trait Backend {
+pub trait Backend<T: ProgressReporter> {
     /// read a text file from specified path
     ///
     /// The path is relative to the ROOT of the backend

@@ -1,9 +1,10 @@
 //! High level binrep API
 use crate::config::Config;
-use crate::config_resolver::resolve_config;
+use crate::config_resolver::resolve_config as resolve_any_config;
 use crate::file_utils;
 use crate::file_utils::{mkdirs, mv, path_concat2, LockFile};
 use crate::metadata::*;
+use crate::progress::ProgressReporter;
 use crate::repository::Repository;
 use anyhow::Error;
 use fs2::FileExt;
@@ -15,8 +16,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tempfile::tempdir;
 
-pub struct Binrep {
-    repository: Repository,
+pub struct Binrep<T: ProgressReporter> {
+    repository: Repository<T>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -37,19 +38,23 @@ struct NoVersionMatching {
     version_req: VersionReq,
 }
 
-impl Binrep {
-    pub fn resolve_config<P: AsRef<Path>, D: DeserializeOwned>(
-        config_path: &Option<P>,
-    ) -> Result<D, Error> {
-        resolve_config(&config_path, "config.sane")
-    }
+pub fn resolve_config<P: AsRef<Path>, D: DeserializeOwned>(
+    config_path: &Option<P>,
+) -> Result<D, Error> {
+    resolve_any_config(&config_path, "config.sane")
+}
 
-    pub fn new<P: AsRef<Path>>(config_path: &Option<P>) -> Result<Binrep, Error> {
-        let config: Config = Self::resolve_config(config_path)?;
+impl<T> Binrep<T>
+where
+    T: ProgressReporter + 'static,
+    T::Output: Send + Sync + 'static,
+{
+    pub fn new<P: AsRef<Path>>(config_path: &Option<P>) -> Result<Binrep<T>, Error> {
+        let config: Config = resolve_config(config_path)?;
         Self::from_config(config)
     }
 
-    pub fn from_config(config: Config) -> Result<Binrep, Error> {
+    pub fn from_config(config: Config) -> Result<Binrep<T>, Error> {
         let repository = Repository::new(config)?;
         Ok(Self { repository })
     }
@@ -251,6 +256,7 @@ pub fn parse_version_req(input: &str) -> Result<VersionReq, Error> {
 mod test {
     use super::*;
     use crate::file_utils::path_concat2;
+    use crate::progress::NOOPProgress;
     use std::fs::metadata;
     use std::path::PathBuf;
     use tempfile::tempdir;
@@ -259,7 +265,8 @@ mod test {
 
     #[test]
     fn test_binrep() {
-        let mut br = Binrep::from_config(Config::create_file_test_config()).unwrap();
+        let mut br: Binrep<NOOPProgress> =
+            Binrep::from_config(Config::create_file_test_config()).unwrap();
         let v1 = Version::parse("1.0.0").unwrap();
         let v12 = Version::parse("1.2.0").unwrap();
         let v2 = Version::parse("2.0.0").unwrap();
@@ -305,7 +312,8 @@ mod test {
     }
     #[test]
     fn test_alpha() {
-        let mut br = Binrep::from_config(Config::create_file_test_config()).unwrap();
+        let mut br: Binrep<NOOPProgress> =
+            Binrep::from_config(Config::create_file_test_config()).unwrap();
         let valpha = Version::parse("1.0.0-alpha1").unwrap();
         br.push(ANAME, &valpha, &vec!["Cargo.toml"]).unwrap();
 
@@ -320,7 +328,8 @@ mod test {
 
     #[test]
     fn test_sync_file_presence() {
-        let mut br = Binrep::from_config(Config::create_file_test_config()).unwrap();
+        let mut br: Binrep<NOOPProgress> =
+            Binrep::from_config(Config::create_file_test_config()).unwrap();
         let v1 = Version::parse("1.0.0").unwrap();
         let v12 = Version::parse("1.2.0").unwrap();
         let v2 = Version::parse("2.0.0").unwrap();

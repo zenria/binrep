@@ -1,19 +1,22 @@
-use crate::backend::{Backend, BackendError};
+use crate::backend::{Backend, BackendError, ProgressReporter};
 use crate::file_utils;
 use anyhow::Error;
+use futures_util::core_reexport::marker::PhantomData;
 use std::fs::File;
 use std::io::Write;
 use std::io::{ErrorKind, Read};
 use std::path::PathBuf;
 
-pub struct FileBackend {
+pub struct FileBackend<T: ProgressReporter> {
     root: PathBuf,
+    _progress_reporter: PhantomData<T>,
 }
 
-impl FileBackend {
+impl<T: ProgressReporter> FileBackend<T> {
     pub fn new(root: &str) -> Self {
         FileBackend {
             root: PathBuf::from(root),
+            _progress_reporter: PhantomData,
         }
     }
 
@@ -41,7 +44,7 @@ impl From<std::io::Error> for BackendError {
     }
 }
 
-impl Backend for FileBackend {
+impl<T: ProgressReporter> Backend<T> for FileBackend<T> {
     fn read_file(&mut self, path: &str) -> Result<String, BackendError> {
         let file_path = get_path(self.root.clone(), path);
         let mut ret = String::new();
@@ -82,7 +85,9 @@ fn get_path(root: PathBuf, path: &str) -> PathBuf {
 
 #[cfg(test)]
 mod test {
+    use crate::backend::file_backend::FileBackend;
     use crate::backend::Backend;
+    use crate::progress::NOOPProgress;
     use std::fs::File;
     use std::io::Read;
     use std::path::{Path, PathBuf};
@@ -112,7 +117,8 @@ mod test {
     #[allow(unused_must_use)]
     fn test_backend() {
         let root = tempdir().unwrap();
-        let mut bck = super::FileBackend::new(&root.into_path().to_string_lossy());
+        let mut bck: FileBackend<NOOPProgress> =
+            super::FileBackend::new(&root.into_path().to_string_lossy());
         let data = "This is some data";
         bck.create_file("foo/bar/some.txt", data.to_string())
             .unwrap();

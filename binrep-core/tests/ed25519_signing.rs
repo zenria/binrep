@@ -1,5 +1,6 @@
 use binrep_core::binrep::Binrep;
 use binrep_core::config::{Config, ED25519Key};
+use binrep_core::progress::NOOPProgress;
 use semver::Version;
 use std::collections::HashMap;
 
@@ -32,7 +33,7 @@ pub fn full_test() {
     // Test uploading & decoding with the pkcs8 encoded ed25519 key
     let config = Config::create_file_test_config_ed25519_publish();
     let publish_config = config.clone();
-    let mut binrep = Binrep::from_config(config).unwrap();
+    let mut binrep = Binrep::<NOOPProgress>::from_config(config).unwrap();
     let v1 = Version::new(1, 0, 0);
     let a = binrep.push("cargo", &v1, &["Cargo.toml"]).unwrap();
     println!("Pushed {:#?}", a);
@@ -50,7 +51,7 @@ pub fn full_test() {
         },
     );
     config.ed25519_keys = Some(ed25519_keys);
-    let mut binrep = Binrep::from_config(config).unwrap(); // new binrep instance
+    let mut binrep = Binrep::<NOOPProgress>::from_config(config).unwrap(); // new binrep instance
     let tmp = tempfile::tempdir().unwrap(); // new tmp dir
     binrep.pull("cargo", &v1, &tmp, true).unwrap();
 }

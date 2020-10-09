@@ -20,10 +20,11 @@ use crate::file_utils;
 use crate::file_utils::{mv, path_concat2};
 use crate::metadata;
 use crate::path;
+use crate::progress::ProgressReporter;
 
 /// Low level API to the repository
-pub struct Repository {
-    backend: Box<dyn Backend>,
+pub struct Repository<T: ProgressReporter> {
+    backend: Box<dyn Backend<T>>,
     config: Config,
 }
 
@@ -58,11 +59,15 @@ fn validate_artifact_name(name: &str) -> Result<(), RepositoryError> {
     })
 }
 
-impl Repository {
+impl<T> Repository<T>
+where
+    T: ProgressReporter + 'static,
+    T::Output: Send + Sync + 'static,
+{
     pub fn new(config: Config) -> Result<Self, Error> {
         // Construct the backend
-        let backend: Box<dyn Backend> = match &config.backend.backend_type {
-            BackendType::File => Box::new(FileBackend::new(
+        let backend: Box<dyn Backend<T>> = match &config.backend.backend_type {
+            BackendType::File => Box::new(FileBackend::<T>::new(
                 &config
                     .backend
                     .file_backend_opt
@@ -70,7 +75,7 @@ impl Repository {
                     .ok_or(RepositoryError::MissingFileBackendRoot)?
                     .root,
             )),
-            BackendType::S3 => Box::new(S3Backend::new(
+            BackendType::S3 => Box::new(S3Backend::<T>::new(
                 config
                     .backend
                     .s3_backend_opt
@@ -369,6 +374,7 @@ impl Repository {
 #[cfg(test)]
 mod test {
     use crate::config::Config;
+    use crate::progress::NOOPProgress;
     use semver::Version;
 
     #[test]
@@ -383,7 +389,7 @@ mod test {
     #[test]
     fn integration_test_file_backend() {
         let config = Config::create_file_test_config();
-        let mut repo = super::Repository::new(config).unwrap();
+        let mut repo = super::Repository::<NOOPProgress>::new(config).unwrap();
         repo.push_artifact(
             "binrep",
             &Version::parse("1.2.3-alpha").unwrap(),
