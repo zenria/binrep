@@ -81,7 +81,7 @@ mod non_interactive;
 mod noop;
 
 use futures::io::Error;
-use futures_util::core_reexport::task::{Context, Poll};
+use futures::task::{Context, Poll};
 pub use interactive::InteractiveProgressReporter;
 pub use noop::NOOPProgress;
 use pin_project::pin_project;

@@ -36,7 +36,7 @@ pub struct Output {
 fn capture_lines<R: Read + Send + 'static, W: Write + Send + 'static>(
     reader: R,
     mut duplicate_stream: Option<W>,
-    line_sender: crossbeam::Sender<Line>,
+    line_sender: crossbeam::channel::Sender<Line>,
     line_type: Type,
 ) {
     std::thread::spawn(move || {

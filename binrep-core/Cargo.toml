@@ -1,6 +1,6 @@
 [package]
 name = "binrep-core"
-version = "0.12.0"
+version = "0.12.1"
 authors = ["Philippe GASSMANN <pgassmann@scoop.it>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ ring={version="0.16", features=["std"]}
 log="0.4"
 shellexpand = "2.0"
 semver={ version="0.10", features=["serde"]}
-base64="0.12"
+base64="0.13"
 tempfile="3"
 chrono="0.4"
 rusoto_s3="0.45"
@@ -24,11 +24,11 @@ fs2="0.4.3"
 # statically link openssl to our binary so we can run on ubuntu:* even if build from a debian strech version
 openssl = { version = "0.10", features = ["vendored"] }
 slack-hook = "0.8.0"
-crossbeam="0.7"
+crossbeam="0.8"
 tokio={version="0.2", features=["time", "rt-threaded", "fs"]}
 tokio-util = "0.3"
 futures-util="0.3"
 futures="0.3"
 indicatif="0.15"
 atty="0.2"
-pin-project = "1.0.0-alpha.1"
+pin-project = "1.0"

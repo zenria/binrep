@@ -1,10 +1,10 @@
 use crate::backend::{Backend, BackendError, ProgressReporter};
 use crate::file_utils;
 use anyhow::Error;
-use futures_util::core_reexport::marker::PhantomData;
 use std::fs::File;
 use std::io::Write;
 use std::io::{ErrorKind, Read};
+use std::marker::PhantomData;
 use std::path::PathBuf;
 
 pub struct FileBackend<T: ProgressReporter> {
