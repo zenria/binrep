@@ -2,7 +2,7 @@
 
 #![allow(dead_code)]
 #![allow(unused_variables)]
-use anyhow::Error;
+use anyhow::{Context, Error};
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -89,7 +89,7 @@ fn main() {
 }
 fn _main(opt: Opt) -> Result<(), Error> {
     // ---- parse Batch config
-    let batch_config: BatchConfig = resolve_config(&opt.batch_configuration_file, "batch.sane")?;
+    let batch_config: BatchConfig = resolve_config(&opt.batch_configuration_file, "batch.sane").context("Unable to read batch.sane configuration file.")?;
 
     // ---- parse slack section of binrep config
     // get root slack config
@@ -130,7 +130,8 @@ fn get_operation_from_includes(includes: Option<String>) -> Vec<SyncOperation> {
         .map(|path| path.unwrap())
         .map(|path| {
             debug!("Reading included config file {:?}", path);
-            file_utils::read_sane_from_file::<_, BatchConfig>(path)
+            file_utils::read_sane_from_file::<_, BatchConfig>(&path)
+                .with_context(||format!("Unable to read {}", path.to_string_lossy()))
                 .unwrap()
                 .sync_operations
         })
