@@ -175,11 +175,11 @@ mod tests {
     fn stderrnout() {
         let mut cmd = Command::new("bash");
         cmd.arg("-c")
-            .arg("echo foo\n>&2 echo coucou\nsleep 1;echo bar");
+            .arg("echo foo\nsleep 1\n>&2 echo coucou\nsleep 1;echo bar");
         let output = extexec(cmd, true).unwrap();
         assert_eq!(
             vec![
-                Line::cmd(r#""bash" "-c" "echo foo\n>&2 echo coucou\nsleep 1;echo bar""#),
+                Line::cmd(r#""bash" "-c" "echo foo\nsleep 1\n>&2 echo coucou\nsleep 1;echo bar""#),
                 Line::out("foo"),
                 Line::err("coucou"),
                 Line::out("bar")
@@ -189,11 +189,11 @@ mod tests {
         // same without tee output
         let mut cmd = Command::new("bash");
         cmd.arg("-c")
-            .arg("echo foo\n>&2 echo coucou\nsleep 1;echo bar");
+            .arg("echo foo\nsleep 1\n>&2 echo coucou\nsleep 1;echo bar");
         let output = extexec(cmd, false).unwrap();
         assert_eq!(
             vec![
-                Line::cmd(r#""bash" "-c" "echo foo\n>&2 echo coucou\nsleep 1;echo bar""#),
+                Line::cmd(r#""bash" "-c" "echo foo\nsleep 1\n>&2 echo coucou\nsleep 1;echo bar""#),
                 Line::out("foo"),
                 Line::err("coucou"),
                 Line::out("bar")
