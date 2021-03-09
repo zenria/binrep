@@ -11,7 +11,7 @@ build:
     - RUST_BACKTRACE=1 cargo test
     ## basic upload / download checks
     - target/debug/binrep push binrep-ci-test auto target/debug/binrep target/debug/binrep-batch
-    - target/debug/binrep sync latest sync-output-dir
+    - target/debug/binrep sync binrep-ci-test latest sync-output-dir
 
 release:
   stage: build
