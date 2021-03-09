@@ -47,11 +47,16 @@ pub struct ProgressReaderAsyncAdapter<R: AsyncRead, P: Progress + Send> {
     #[pin]
     reader: R,
     progress: P,
+    total_read: usize,
 }
 
 impl<R: AsyncRead, P: Progress + Send> ProgressReaderAsyncAdapter<R, P> {
     pub fn new(reader: R, progress: P) -> Self {
-        Self { reader, progress }
+        Self {
+            reader,
+            progress,
+            total_read: 0,
+        }
     }
 }
 
@@ -59,14 +64,19 @@ impl<R: AsyncRead, P: Progress + Send> AsyncRead for ProgressReaderAsyncAdapter<
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<io::Result<usize>> {
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         let this = self.project();
         let pinned_reader: Pin<&mut R> = this.reader;
         let poll = pinned_reader.poll_read(cx, buf);
         match &poll {
             Poll::Ready(r) => match r {
-                Ok(size) => this.progress.inc(*size),
+                Ok(_) => {
+                    let total_read = buf.filled().len();
+                    let amount_read = total_read - *this.total_read;
+                    this.progress.inc(amount_read);
+                    *this.total_read = total_read;
+                }
                 Err(_) => {}
             },
             _ => {}

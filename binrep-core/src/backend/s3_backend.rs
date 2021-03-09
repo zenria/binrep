@@ -20,9 +20,11 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-use tokio::runtime::{Handle, Runtime};
-use tokio::stream::StreamExt;
-use tokio::time::{timeout, Elapsed, Timeout};
+use tokio::time::{timeout, Timeout};
+use tokio::{
+    runtime::{Handle, Runtime},
+    time::error::Elapsed,
+};
 use tokio_util::codec;
 
 pub struct S3Backend<T: ProgressReporter> {
@@ -41,9 +43,10 @@ pub enum S3BackendError {
 
 impl From<RusotoError<GetObjectError>> for BackendError {
     fn from(e: RusotoError<GetObjectError>) -> Self {
-        match e {
+        match &e {
             RusotoError::Service(get_error) => match get_error {
                 GetObjectError::NoSuchKey(key) => BackendError::ResourceNotFound,
+                GetObjectError::InvalidObjectState(key) => BackendError::Other { cause: e.into() },
             },
             _ => BackendError::Other { cause: e.into() },
         }
@@ -62,7 +65,7 @@ impl From<S3BackendError> for BackendError {
     }
 }
 
-impl From<tokio::time::Elapsed> for BackendError {
+impl From<Elapsed> for BackendError {
     fn from(e: Elapsed) -> Self {
         BackendError::Other { cause: e.into() }
     }
@@ -111,13 +114,12 @@ impl<T: ProgressReporter> S3Backend<T> {
         // we use the lazy trick to get our future
         let timeout_future = self
             .runtime
-            .handle()
             .block_on(lazy(|_| tokio::time::timeout(self.request_timeout, fut)));
-        self.runtime.handle().block_on(timeout_future)
+        self.runtime.block_on(timeout_future)
     }
 
     fn execute<R, F: std::future::Future<Output = R>>(&mut self, fut: F) -> R {
-        self.runtime.handle().block_on(fut)
+        self.runtime.block_on(fut)
     }
 }
 
