@@ -9,6 +9,9 @@ build:
   script:
     - cargo build --all --all-targets --color=always
     - RUST_BACKTRACE=1 cargo test
+    ## basic upload / download checks
+    - target/debug/binrep push binrep-ci-test auto target/debug/*
+    - target/debug/binrep sync latest sync-output-dir
 
 release:
   stage: build
