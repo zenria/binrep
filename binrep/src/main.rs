@@ -10,9 +10,9 @@ use binrep_core::exec::exec;
 use binrep_core::metadata::Artifact;
 use binrep_core::progress::InteractiveProgressReporter;
 use binrep_core::slack::{SlackConfig, WebhookConfig};
+use binrep_core::slack_hook2::{AttachmentBuilder, PayloadBuilder};
 use ring::signature::KeyPair;
 use semver::{Version, VersionReq};
-use slack_hook::{AttachmentBuilder, PayloadBuilder};
 use std::fmt::Display;
 
 #[derive(StructOpt)]
@@ -211,7 +211,7 @@ fn send_slack_push_notif(
     slack: &WebhookConfig,
     artifact_name: &str,
     artifact: &Artifact,
-) -> Result<bool, slack_hook::Error> {
+) -> Result<bool, anyhow::Error> {
     slack.send(|| {
         let files: String = artifact
             .files

@@ -1,7 +1,7 @@
 //! Helper module for slack notifications
 use serde::Deserialize;
 use serde::Serialize;
-use slack_hook::{PayloadBuilder, Result, Slack};
+use slack_hook2::{PayloadBuilder, Slack};
 
 /// A config where any value is optional ;)
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
@@ -32,7 +32,10 @@ impl WebhookConfig {
         }
     }
 
-    pub fn send<F: Fn() -> Result<PayloadBuilder>>(&self, payload_builder: F) -> Result<bool> {
+    pub fn send<F: Fn() -> slack_hook2::Result<PayloadBuilder>>(
+        &self,
+        payload_builder: F,
+    ) -> anyhow::Result<bool> {
         if let Some(webhook_url) = &self.webhook_url {
             // config has at least a url somewhere!
 
@@ -44,8 +47,8 @@ impl WebhookConfig {
             } else {
                 payload_builder
             };
-
-            Slack::new(webhook_url.as_str())?.send(&payload_builder.build()?)?;
+            let rt = tokio::runtime::Builder::new_current_thread().build()?;
+            rt.block_on(Slack::new(webhook_url.as_str())?.send(&payload_builder.build()?))?;
             Ok(true)
         } else {
             Ok(false)

@@ -19,3 +19,6 @@ mod path;
 pub mod progress;
 mod repository;
 pub mod slack;
+
+// reexport slack_hook2
+pub use slack_hook2;

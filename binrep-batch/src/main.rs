@@ -6,9 +6,9 @@ use anyhow::{Context, Error};
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-use binrep_core::binrep::Binrep;
 use binrep_core::config_resolver::resolve_config;
 use binrep_core::{binrep, file_utils};
+use binrep_core::{binrep::Binrep, slack_hook2};
 use glob::glob;
 use serde::Deserialize;
 use serde::Serialize;
@@ -16,8 +16,8 @@ use serde::Serialize;
 use binrep_core::extended_exec::{Line, Type};
 use binrep_core::progress::InteractiveProgressReporter;
 use binrep_core::slack::{SlackConfig, WebhookConfig};
+use binrep_core::slack_hook2::PayloadBuilder;
 use log::debug;
-use slack_hook::PayloadBuilder;
 
 #[derive(StructOpt)]
 struct Opt {
@@ -58,10 +58,10 @@ impl SlackNotifier {
         }
     }
 
-    pub fn send<F: Fn() -> slack_hook::Result<PayloadBuilder>>(
+    pub fn send<F: Fn() -> slack_hook2::Result<PayloadBuilder>>(
         &self,
         payload_builder: F,
-    ) -> slack_hook::Result<bool> {
+    ) -> anyhow::Result<bool> {
         if self.enabled {
             self.webhook_config.send(payload_builder)
         } else {
@@ -89,7 +89,8 @@ fn main() {
 }
 fn _main(opt: Opt) -> Result<(), Error> {
     // ---- parse Batch config
-    let batch_config: BatchConfig = resolve_config(&opt.batch_configuration_file, "batch.sane").context("Unable to read batch.sane configuration file.")?;
+    let batch_config: BatchConfig = resolve_config(&opt.batch_configuration_file, "batch.sane")
+        .context("Unable to read batch.sane configuration file.")?;
 
     // ---- parse slack section of binrep config
     // get root slack config
@@ -131,7 +132,7 @@ fn get_operation_from_includes(includes: Option<String>) -> Vec<SyncOperation> {
         .map(|path| {
             debug!("Reading included config file {:?}", path);
             file_utils::read_sane_from_file::<_, BatchConfig>(&path)
-                .with_context(||format!("Unable to read {}", path.to_string_lossy()))
+                .with_context(|| format!("Unable to read {}", path.to_string_lossy()))
                 .unwrap()
                 .sync_operations
         })
@@ -147,8 +148,8 @@ mod batch {
     use binrep_core::extended_exec::Line;
     use binrep_core::metadata::Artifact;
     use binrep_core::progress::ProgressReporter;
+    use binrep_core::slack_hook2::{AttachmentBuilder, PayloadBuilder};
     use semver::VersionReq;
-    use slack_hook::{AttachmentBuilder, PayloadBuilder};
     use std::convert::{TryFrom, TryInto};
     use std::path::PathBuf;
 
@@ -245,7 +246,7 @@ mod batch {
         slack_notifier: &SlackNotifier,
         artifact_name: &str,
         artifact: &Artifact,
-    ) -> Result<bool, slack_hook::Error> {
+    ) -> Result<bool, anyhow::Error> {
         let hostname = hostname::get()
             .ok()
             .map(|hostname| hostname.to_string_lossy().into_owned())
