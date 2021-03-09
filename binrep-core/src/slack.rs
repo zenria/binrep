@@ -47,7 +47,9 @@ impl WebhookConfig {
             } else {
                 payload_builder
             };
-            let rt = tokio::runtime::Builder::new_current_thread().build()?;
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?;
             rt.block_on(Slack::new(webhook_url.as_str())?.send(&payload_builder.build()?))?;
             Ok(true)
         } else {
