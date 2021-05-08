@@ -20,7 +20,7 @@ impl ProgressReporter for IndicatifProgressReporter {
                 .progress_chars("##-"),
         );
         if let Some(name) = name {
-            pb.set_message(&name);
+            pb.set_message(name);
         }
         IndicatifProgress(pb)
     }
