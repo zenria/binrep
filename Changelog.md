@@ -1,7 +1,6 @@
 ## 0.14.0
 
 - going full async
-- improve pull performances
 
 ## 0.13.0
 
