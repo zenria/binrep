@@ -32,7 +32,7 @@ impl WebhookConfig {
         }
     }
 
-    pub fn send<F: Fn() -> slack_hook2::Result<PayloadBuilder>>(
+    pub async fn send<F: Fn() -> slack_hook2::Result<PayloadBuilder>>(
         &self,
         payload_builder: F,
     ) -> anyhow::Result<bool> {
@@ -47,10 +47,9 @@ impl WebhookConfig {
             } else {
                 payload_builder
             };
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()?;
-            rt.block_on(Slack::new(webhook_url.as_str())?.send(&payload_builder.build()?))?;
+            Slack::new(webhook_url.as_str())?
+                .send(&payload_builder.build()?)
+                .await?;
             Ok(true)
         } else {
             Ok(false)

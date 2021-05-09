@@ -58,12 +58,12 @@ impl SlackNotifier {
         }
     }
 
-    pub fn send<F: Fn() -> slack_hook2::Result<PayloadBuilder>>(
+    pub async fn send<F: Fn() -> slack_hook2::Result<PayloadBuilder>>(
         &self,
         payload_builder: F,
     ) -> anyhow::Result<bool> {
         if self.enabled {
-            self.webhook_config.send(payload_builder)
+            self.webhook_config.send(payload_builder).await
         } else {
             Ok(false)
         }
@@ -224,7 +224,9 @@ mod batch {
                         &slack_notifier,
                         &operation.artifact_name,
                         &result.artifact,
-                    ) {
+                    )
+                    .await
+                    {
                         Ok(sent) => {
                             if sent {
                                 println!("Slack notification sent!");
@@ -243,7 +245,7 @@ mod batch {
         Ok(())
     }
 
-    fn handle_exec_result(
+    async fn handle_exec_result(
         exec_result: Result<Option<Vec<Line>>, Error>,
         slack_notifier: &SlackNotifier,
         artifact_name: &str,
@@ -254,49 +256,55 @@ mod batch {
             .map(|hostname| hostname.to_string_lossy().into_owned())
             .unwrap_or("#unknown".into());
         match exec_result {
-            Ok(output_lines) => slack_notifier.send(|| {
-                let updated_text = format!(
-                    "Updated *{}* to version *{}* on *{}*.",
-                    artifact_name, artifact.version, hostname
-                );
-                Ok(PayloadBuilder::new().text(updated_text).attachments(
-                    output_lines
-                        .iter()
-                        .filter(|lines| lines.len() > 0)
-                        .flat_map(|lines| {
-                            let command_text = execution_commands_to_text(lines);
-                            AttachmentBuilder::new(command_text.clone())
-                                .text(command_text)
-                                .color("good")
-                                .build()
-                                .into_iter()
-                        })
-                        .collect(),
-                ))
-            }),
+            Ok(output_lines) => {
+                slack_notifier
+                    .send(|| {
+                        let updated_text = format!(
+                            "Updated *{}* to version *{}* on *{}*.",
+                            artifact_name, artifact.version, hostname
+                        );
+                        Ok(PayloadBuilder::new().text(updated_text).attachments(
+                            output_lines
+                                .iter()
+                                .filter(|lines| lines.len() > 0)
+                                .flat_map(|lines| {
+                                    let command_text = execution_commands_to_text(lines);
+                                    AttachmentBuilder::new(command_text.clone())
+                                        .text(command_text)
+                                        .color("good")
+                                        .build()
+                                        .into_iter()
+                                })
+                                .collect(),
+                        ))
+                    })
+                    .await
+            }
             Err(e) => {
                 eprintln!("Execution error: {}", e);
-                slack_notifier.send(|| {
-                    let updated_text = format!(
+                slack_notifier
+                    .send(|| {
+                        let updated_text = format!(
                         "Something went wrong updating *{}* to version *{}* on *{}*.\n```\n{}```",
                         artifact_name, artifact.version, hostname, e
                     );
-                    let lines = e.downcast_ref::<ExecutionError>().map(|e| &e.output_lines);
-                    Ok(PayloadBuilder::new().text(updated_text).attachments(
-                        lines
-                            .iter()
-                            .filter(|lines| lines.len() > 0)
-                            .flat_map(|lines| {
-                                let command_text = execution_commands_to_text(lines);
-                                AttachmentBuilder::new(command_text.clone())
-                                    .text(command_text)
-                                    .color("danger")
-                                    .build()
-                                    .into_iter()
-                            })
-                            .collect(),
-                    ))
-                })
+                        let lines = e.downcast_ref::<ExecutionError>().map(|e| &e.output_lines);
+                        Ok(PayloadBuilder::new().text(updated_text).attachments(
+                            lines
+                                .iter()
+                                .filter(|lines| lines.len() > 0)
+                                .flat_map(|lines| {
+                                    let command_text = execution_commands_to_text(lines);
+                                    AttachmentBuilder::new(command_text.clone())
+                                        .text(command_text)
+                                        .color("danger")
+                                        .build()
+                                        .into_iter()
+                                })
+                                .collect(),
+                        ))
+                    })
+                    .await
             }
         }
     }

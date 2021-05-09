@@ -144,7 +144,7 @@ async fn _main(opt: Opt) -> Result<(), Error> {
                 .push(artifact_name, &artifact_version, &artifact_files)
                 .await?;
             println!("Pushed {} {}", artifact_name, pushed);
-            match send_slack_push_notif(&slack_configuration.into(), artifact_name, &pushed) {
+            match send_slack_push_notif(&slack_configuration.into(), artifact_name, &pushed).await {
                 Ok(sent) => {
                     if sent {
                         println!("Slack notification sent.");
@@ -218,33 +218,35 @@ fn print_list<T: Display, I: IntoIterator<Item = T>>(collection: I) {
     }
 }
 
-fn send_slack_push_notif(
+async fn send_slack_push_notif(
     slack: &WebhookConfig,
     artifact_name: &str,
     artifact: &Artifact,
 ) -> Result<bool, anyhow::Error> {
-    slack.send(|| {
-        let files: String = artifact
-            .files
-            .iter()
-            .map(|file| format!("\n- `{}`", file.name))
-            .collect();
-        let files_text = format!(
-            "{} file{} uploaded: {}",
-            artifact.files.len(),
-            if artifact.files.len() > 1 { "s" } else { "" },
-            files
-        );
-        Ok(PayloadBuilder::new()
-            .text(format!(
-                "Pushed version *{}* of *{}* to artifact repository.",
-                artifact.version, artifact_name
-            ))
-            .attachments(vec![AttachmentBuilder::new(files_text.clone())
-                .text(files_text)
-                .color("good")
-                .build()?]))
-    })
+    slack
+        .send(|| {
+            let files: String = artifact
+                .files
+                .iter()
+                .map(|file| format!("\n- `{}`", file.name))
+                .collect();
+            let files_text = format!(
+                "{} file{} uploaded: {}",
+                artifact.files.len(),
+                if artifact.files.len() > 1 { "s" } else { "" },
+                files
+            );
+            Ok(PayloadBuilder::new()
+                .text(format!(
+                    "Pushed version *{}* of *{}* to artifact repository.",
+                    artifact.version, artifact_name
+                ))
+                .attachments(vec![AttachmentBuilder::new(files_text.clone())
+                    .text(files_text)
+                    .color("good")
+                    .build()?]))
+        })
+        .await
 }
 
 pub fn generate_ed25519_key_pair() -> Result<(Vec<u8>, Vec<u8>), ring::error::Unspecified> {
