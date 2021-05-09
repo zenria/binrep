@@ -7,6 +7,7 @@ use crate::metadata::{Artifact, Artifacts, ChecksumMethod, Signature, SignatureM
 use crate::path::artifacts;
 use anyhow::Error;
 use core::borrow::Borrow;
+use futures::{StreamExt, TryStreamExt};
 use ring::digest::{Algorithm, Digest};
 use semver::Version;
 use std::fs::File;
@@ -89,25 +90,26 @@ where
     /// Initialize the repository, do nothing if the repository is already initialized.
     ///
     /// Always returns the Artifacts list
-    fn init(&mut self) -> Result<Artifacts, Error> {
-        match self.list_artifacts() {
+    async fn init(&mut self) -> Result<Artifacts, Error> {
+        match self.list_artifacts().await {
             Ok(artifacts) => Ok(artifacts),
             Err(_) => {
                 let new_artifacts = Artifacts::new();
-                self.write_artifacts(&new_artifacts)?;
+                self.write_artifacts(&new_artifacts).await?;
                 Ok(new_artifacts)
             }
         }
     }
 
-    fn write_artifacts(&mut self, artifacts: &Artifacts) -> Result<(), Error> {
+    async fn write_artifacts(&mut self, artifacts: &Artifacts) -> Result<(), Error> {
         info!("writing {}", path::artifacts());
         Ok(self
             .backend
-            .create_file(path::artifacts(), sane::to_string(artifacts)?)?)
+            .create_file(path::artifacts(), sane::to_string(artifacts)?)
+            .await?)
     }
 
-    fn write_artifact_versions(
+    async fn write_artifact_versions(
         &mut self,
         artifact_name: &str,
         versions: &Versions,
@@ -116,10 +118,11 @@ where
         info!("writing {}", versions_path);
         Ok(self
             .backend
-            .create_file(&versions_path, sane::to_string(versions)?)?)
+            .create_file(&versions_path, sane::to_string(versions)?)
+            .await?)
     }
 
-    fn write_artifact(
+    async fn write_artifact(
         &mut self,
         artifact_name: &str,
         version: &Version,
@@ -129,13 +132,14 @@ where
         info!("writing {}", artifact_path);
         Ok(self
             .backend
-            .create_file(&artifact_path, sane::to_string(artifact)?)?)
+            .create_file(&artifact_path, sane::to_string(artifact)?)
+            .await?)
     }
 
     /// Initialize artifact repo, do nothing if the artifact repo is already initialized
-    fn init_artifact(&mut self, artifact_name: &str) -> Result<Versions, Error> {
+    async fn init_artifact(&mut self, artifact_name: &str) -> Result<Versions, Error> {
         validate_artifact_name(artifact_name)?;
-        match self.list_artifact_versions(artifact_name) {
+        match self.list_artifact_versions(artifact_name).await {
             Ok(versions) => Ok(versions),
             Err(e) => {
                 // check if the underlying error is a resource not found error meaning
@@ -145,13 +149,14 @@ where
                     BackendError::ResourceNotFound => {
                         info!("initializing new artifact {}", artifact_name);
                         // init the repo
-                        let mut artifacts = self.init()?;
+                        let mut artifacts = self.init().await?;
                         // write new versions file
                         let new_versions = Versions::new();
-                        self.write_artifact_versions(artifact_name, &new_versions)?;
+                        self.write_artifact_versions(artifact_name, &new_versions)
+                            .await?;
                         // register artifact
                         artifacts.artifacts.push(artifact_name.into());
-                        self.write_artifacts(&artifacts)?;
+                        self.write_artifacts(&artifacts).await?;
                         Ok(new_versions)
                     }
                     e => Err(e)?,
@@ -160,23 +165,25 @@ where
         }
     }
 
-    pub fn list_artifacts(&mut self) -> Result<Artifacts, Error> {
+    pub async fn list_artifacts(&mut self) -> Result<Artifacts, Error> {
         let artifacts_path = path::artifacts();
         info!("Reading {}", artifacts_path);
         Ok(sane::from_str::<Artifacts>(
-            &self.backend.read_file(artifacts_path)?,
+            &self.backend.read_file(artifacts_path).await?,
         )?)
     }
 
-    pub fn list_artifact_versions(&mut self, artifact_name: &str) -> Result<Versions, Error> {
+    pub async fn list_artifact_versions(&mut self, artifact_name: &str) -> Result<Versions, Error> {
         validate_artifact_name(artifact_name)?;
 
         let path: String = path::artifact::versions(artifact_name);
         info!("Reading {}", path);
-        Ok(sane::from_str::<Versions>(&self.backend.read_file(&path)?)?)
+        Ok(sane::from_str::<Versions>(
+            &self.backend.read_file(&path).await?,
+        )?)
     }
 
-    pub fn get_artifact(
+    pub async fn get_artifact(
         &mut self,
         artifact_name: &str,
         artifact_version: &Version,
@@ -185,21 +192,21 @@ where
 
         let path: String = path::artifact::artifact(artifact_name, artifact_version);
         info!("Reading {}", path);
-        let ret = sane::from_str::<Artifact>(&self.backend.read_file(&path)?)?;
+        let ret = sane::from_str::<Artifact>(&self.backend.read_file(&path).await?)?;
         if !ret.verify_signature(&self.config)? {
             Err(RepositoryError::WrongArtifactSignature)?;
         }
         Ok(ret)
     }
 
-    pub fn push_artifact<P: AsRef<Path>>(
+    pub async fn push_artifact<P: AsRef<Path>>(
         &mut self,
         artifact_name: &str,
         version: &Version,
         files: &[P],
     ) -> Result<Artifact, Error> {
         // Compute sums & signature
-        let mut versions = self.init_artifact(artifact_name)?;
+        let mut versions = self.init_artifact(artifact_name).await?;
         if versions.versions.contains(&version) {
             Err(RepositoryError::ArtifactVersionAlreadyExists)?;
         }
@@ -258,20 +265,24 @@ where
 
         for (file, filename) in files.iter().zip(filenames.iter()) {
             let local_path = PathBuf::from(file.as_ref());
-            self.backend.push_file(
-                local_path,
-                &path::artifact::artifact_file(artifact_name, version, filename),
-            )?;
+            self.backend
+                .push_file(
+                    local_path,
+                    &path::artifact::artifact_file(artifact_name, version, filename),
+                )
+                .await?;
         }
 
-        self.write_artifact(artifact_name, version, &artifact)?;
+        self.write_artifact(artifact_name, version, &artifact)
+            .await?;
         versions.versions.push(version.clone());
-        self.write_artifact_versions(artifact_name, &versions)?;
+        self.write_artifact_versions(artifact_name, &versions)
+            .await?;
 
         Ok(artifact)
     }
 
-    pub fn pull_artifact<P: AsRef<Path>>(
+    pub async fn pull_artifact<P: AsRef<Path>>(
         &mut self,
         artifact_name: &str,
         artifact_version: &Version,
@@ -282,23 +293,17 @@ where
         // then verify checksum
         // then move to final destination
 
-        let artifact = self.get_artifact(artifact_name, artifact_version)?;
+        let artifact = self.get_artifact(artifact_name, artifact_version).await?;
 
         let tmp_dir = tempdir()?;
 
-        let temporary_file_paths: Vec<PathBuf> =
-            artifact
-                .files
-                .iter()
-                .try_fold(Vec::new(), |mut files, file| -> Result<_, Error> {
-                    files.push(self.copy_to_tmpdir(
-                        artifact_name,
-                        artifact_version,
-                        file,
-                        &tmp_dir,
-                    )?);
-                    Ok(files)
-                })?;
+        let mut temporary_file_paths: Vec<PathBuf> = Vec::new();
+        for file in &artifact.files {
+            temporary_file_paths.push(
+                self.copy_to_tmpdir(&artifact_name, artifact_version, file, &tmp_dir)
+                    .await?,
+            );
+        }
 
         // all files are downloaded with checksum been verified,
         // move them to the final destination
@@ -337,19 +342,21 @@ where
         Ok(artifact)
     }
 
-    fn copy_to_tmpdir(
+    async fn copy_to_tmpdir<P: AsRef<Path>>(
         &mut self,
         artifact_name: &str,
         artifact_version: &Version,
         file: &metadata::File,
-        tmp_dir: &TempDir,
+        tmp_dir: P,
     ) -> Result<PathBuf, Error> {
         let dest_path = path_concat2(&tmp_dir, &file.name);
         info!("Pulling {} to {}", file.name, dest_path.to_string_lossy());
-        self.backend.pull_file(
-            &path::artifact::artifact_file(artifact_name, artifact_version, &file.name),
-            dest_path.clone(),
-        )?;
+        self.backend
+            .pull_file(
+                &path::artifact::artifact_file(artifact_name, artifact_version, &file.name),
+                dest_path.clone(),
+            )
+            .await?;
 
         if let Some(unix_mode) = file.unix_mode {
             let metadata = std::fs::metadata(&dest_path)?;
@@ -386,8 +393,8 @@ mod test {
         assert!(super::validate_artifact_name("someé").is_err());
     }
 
-    #[test]
-    fn integration_test_file_backend() {
+    #[tokio::test]
+    async fn integration_test_file_backend() {
         let config = Config::create_file_test_config();
         let mut repo = super::Repository::<NOOPProgress>::new(config).unwrap();
         repo.push_artifact(
@@ -395,20 +402,26 @@ mod test {
             &Version::parse("1.2.3-alpha").unwrap(),
             &vec!["Cargo.toml", "./src/lib.rs"],
         )
+        .await
         .unwrap();
         repo.push_artifact(
             "binrep",
             &Version::parse("1.2.1").unwrap(),
             &vec!["./src/backend/mod.rs", "./src/lib.rs"],
         )
+        .await
         .unwrap();
 
         assert_eq!(
             vec!["binrep".to_string()],
-            repo.list_artifacts().unwrap().artifacts
+            repo.list_artifacts().await.unwrap().artifacts
         );
 
-        let versions = repo.list_artifact_versions("binrep").unwrap().versions;
+        let versions = repo
+            .list_artifact_versions("binrep")
+            .await
+            .unwrap()
+            .versions;
         assert_eq!(2, versions.len());
         assert!(versions.contains(&Version::parse("1.2.1").unwrap()));
         assert!(versions.contains(&Version::parse("1.2.3-alpha").unwrap()));
@@ -420,9 +433,11 @@ mod test {
                 &Version::parse("1.2.1").unwrap(),
                 &vec!["./src/backend/mod.rs", "./src/lib.rs"],
             )
+            .await
             .is_err());
 
         repo.get_artifact("binrep", &Version::parse("1.2.1").unwrap())
+            .await
             .unwrap();
 
         let pull_dir = tempfile::tempdir().unwrap();
@@ -433,6 +448,7 @@ mod test {
             pull_dir.path(),
             false,
         )
+        .await
         .unwrap();
         assert!(repo
             .pull_artifact(
@@ -441,6 +457,7 @@ mod test {
                 pull_dir.path(),
                 false,
             )
+            .await
             .is_err());
         repo.pull_artifact(
             "binrep",
@@ -448,6 +465,7 @@ mod test {
             pull_dir.path(),
             true,
         )
+        .await
         .unwrap();
     }
 }

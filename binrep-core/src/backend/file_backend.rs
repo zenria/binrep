@@ -43,16 +43,16 @@ impl From<std::io::Error> for BackendError {
         }
     }
 }
-
+#[async_trait::async_trait(?Send)]
 impl<T: ProgressReporter> Backend<T> for FileBackend<T> {
-    fn read_file(&mut self, path: &str) -> Result<String, BackendError> {
+    async fn read_file(&mut self, path: &str) -> Result<String, BackendError> {
         let file_path = get_path(self.root.clone(), path);
         let mut ret = String::new();
         File::open(file_path)?.read_to_string(&mut ret)?;
         Ok(ret)
     }
 
-    fn create_file(&mut self, path: &str, data: String) -> Result<(), BackendError> {
+    async fn create_file(&mut self, path: &str, data: String) -> Result<(), BackendError> {
         let file_path = get_path(self.root.clone(), path);
         self.mkdirs(&file_path)?;
         let mut file = File::create(file_path)?;
@@ -60,14 +60,14 @@ impl<T: ProgressReporter> Backend<T> for FileBackend<T> {
         Ok(())
     }
 
-    fn push_file(&mut self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
+    async fn push_file(&mut self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
         let remote_file_path = get_path(self.root.clone(), remote);
         self.mkdirs(&remote_file_path)?;
         std::fs::copy(local, remote_file_path)?;
         Ok(())
     }
 
-    fn pull_file(&mut self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
+    async fn pull_file(&mut self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
         let remote_file_path = get_path(self.root.clone(), remote);
         std::fs::copy(remote_file_path, local)?;
         Ok(())
@@ -113,29 +113,33 @@ mod test {
         );
     }
 
-    #[test]
+    #[tokio::test]
     #[allow(unused_must_use)]
-    fn test_backend() {
+    async fn test_backend() {
         let root = tempdir().unwrap();
         let mut bck: FileBackend<NOOPProgress> =
             super::FileBackend::new(&root.into_path().to_string_lossy());
         let data = "This is some data";
         bck.create_file("foo/bar/some.txt", data.to_string())
+            .await
             .unwrap();
-        bck.create_file("root.txt", data.to_string()).unwrap();
-        assert_eq!(data, bck.read_file("foo/bar/some.txt").unwrap());
-        assert_eq!(data, bck.read_file("/foo/bar/some.txt").unwrap()); // also works with starting slash ;)
-        assert_eq!(data, bck.read_file("root.txt").unwrap());
-        assert_eq!(data, bck.read_file("/root.txt").unwrap()); // also works with starting slash ;)
+        bck.create_file("root.txt", data.to_string()).await.unwrap();
+        assert_eq!(data, bck.read_file("foo/bar/some.txt").await.unwrap());
+        assert_eq!(data, bck.read_file("/foo/bar/some.txt").await.unwrap()); // also works with starting slash ;)
+        assert_eq!(data, bck.read_file("root.txt").await.unwrap());
+        assert_eq!(data, bck.read_file("/root.txt").await.unwrap()); // also works with starting slash ;)
 
-        bck.push_file("./Cargo.toml".into(), "Cargo.toml").unwrap();
-        assert_file_equals("./Cargo.toml", bck.read_file("Cargo.toml").unwrap());
+        bck.push_file("./Cargo.toml".into(), "Cargo.toml")
+            .await
+            .unwrap();
+        assert_file_equals("./Cargo.toml", bck.read_file("Cargo.toml").await.unwrap());
 
         bck.push_file("./Cargo.toml".into(), "/foo2/bar/othername.toml")
+            .await
             .unwrap();
         assert_file_equals(
             "./Cargo.toml",
-            bck.read_file("/foo2/bar/othername.toml").unwrap(),
+            bck.read_file("/foo2/bar/othername.toml").await.unwrap(),
         );
 
         let dest_dir = tempdir().unwrap();
@@ -143,8 +147,10 @@ mod test {
         dest_file.push("othername.toml");
 
         bck.pull_file("/foo2/bar/othername.toml", dest_file.clone())
+            .await
             .unwrap();
         bck.pull_file("/foo2/bar/othername.toml", dest_file.clone())
+            .await
             .unwrap();
     }
 

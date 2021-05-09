@@ -59,34 +59,36 @@ where
         Ok(Self { repository })
     }
 
-    pub fn list_artifacts(&mut self) -> Result<Artifacts, Error> {
-        self.repository.list_artifacts()
+    pub async fn list_artifacts(&mut self) -> Result<Artifacts, Error> {
+        self.repository.list_artifacts().await
     }
 
-    pub fn list_artifact_versions(
+    pub async fn list_artifact_versions(
         &mut self,
         artifact_name: &str,
         version_req: &VersionReq,
     ) -> Result<Vec<Version>, Error> {
         Ok(self
             .repository
-            .list_artifact_versions(artifact_name)?
+            .list_artifact_versions(artifact_name)
+            .await?
             .versions
             .into_iter()
             .filter(|v| version_req.matches(v))
             .collect())
     }
 
-    pub fn artifact(
+    pub async fn artifact(
         &mut self,
         artifact_name: &str,
         artifact_version: &Version,
     ) -> Result<Artifact, Error> {
         self.repository
             .get_artifact(artifact_name, artifact_version)
+            .await
     }
 
-    pub fn push<P: AsRef<Path>>(
+    pub async fn push<P: AsRef<Path>>(
         &mut self,
         artifact_name: &str,
         artifact_version: &Version,
@@ -94,34 +96,39 @@ where
     ) -> Result<Artifact, Error> {
         self.repository
             .push_artifact(artifact_name, artifact_version, files)
+            .await
     }
 
-    pub fn pull<P: AsRef<Path>>(
+    pub async fn pull<P: AsRef<Path>>(
         &mut self,
         artifact_name: &str,
         artifact_version: &Version,
         destination_dir: P,
         overwrite_dest: bool,
     ) -> Result<Artifact, Error> {
-        self.repository.pull_artifact(
-            artifact_name,
-            artifact_version,
-            destination_dir,
-            overwrite_dest,
-        )
+        self.repository
+            .pull_artifact(
+                artifact_name,
+                artifact_version,
+                destination_dir,
+                overwrite_dest,
+            )
+            .await
     }
 
-    pub fn last_version(
+    pub async fn last_version(
         &mut self,
         artifact_name: &str,
         version_req: &VersionReq,
     ) -> Result<Option<Version>, Error> {
-        let mut matching_versions = self.list_artifact_versions(artifact_name, version_req)?;
+        let mut matching_versions = self
+            .list_artifact_versions(artifact_name, version_req)
+            .await?;
         matching_versions.sort();
         Ok(matching_versions.into_iter().last())
     }
 
-    pub fn sync<P: AsRef<Path>>(
+    pub async fn sync<P: AsRef<Path>>(
         &mut self,
         artifact_name: &str,
         version_req: &VersionReq,
@@ -129,7 +136,7 @@ where
     ) -> Result<SyncResult, Error> {
         file_utils::mkdirs(&destination_dir)?;
 
-        let latest = match self.last_version(artifact_name, version_req)? {
+        let latest = match self.last_version(artifact_name, version_req).await? {
             Some(max_matching_version) => max_matching_version,
             None => Err(NoVersionMatching {
                 version_req: version_req.clone(),
@@ -155,9 +162,10 @@ where
             meta => {
                 // pull artifact to tempdir
                 let temp_sync_dir = tempdir()?;
-                let artifact =
-                    self.repository
-                        .pull_artifact(artifact_name, &latest, &temp_sync_dir, true)?;
+                let artifact = self
+                    .repository
+                    .pull_artifact(artifact_name, &latest, &temp_sync_dir, true)
+                    .await?;
                 // remove existing files if any
                 meta.as_ref()
                     .map(|meta| meta.artifact.files.clone())
@@ -263,71 +271,89 @@ mod test {
 
     static ANAME: &'static str = "binrep";
 
-    #[test]
-    fn test_binrep() {
+    #[tokio::test]
+    async fn test_binrep() {
         let mut br: Binrep<NOOPProgress> =
             Binrep::from_config(Config::create_file_test_config()).unwrap();
         let v1 = Version::parse("1.0.0").unwrap();
         let v12 = Version::parse("1.2.0").unwrap();
         let v2 = Version::parse("2.0.0").unwrap();
 
-        br.push(ANAME, &v1, &vec!["Cargo.toml"]).unwrap();
+        br.push(ANAME, &v1, &vec!["Cargo.toml"]).await.unwrap();
 
         let dest_sync = tempfile::tempdir().unwrap();
 
-        let sr = br.sync(ANAME, &VersionReq::any(), &dest_sync).unwrap();
+        let sr = br
+            .sync(ANAME, &VersionReq::any(), &dest_sync)
+            .await
+            .unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v1, sr.artifact.version);
 
-        let sr = br.sync(ANAME, &VersionReq::any(), &dest_sync).unwrap();
+        let sr = br
+            .sync(ANAME, &VersionReq::any(), &dest_sync)
+            .await
+            .unwrap();
         assert_eq!(SyncStatus::UpToDate, sr.status);
         assert_eq!(v1, sr.artifact.version);
 
-        br.push(ANAME, &v12, &vec!["Cargo.toml"]).unwrap();
-        br.push(ANAME, &v2, &vec!["Cargo.toml"]).unwrap();
+        br.push(ANAME, &v12, &vec!["Cargo.toml"]).await.unwrap();
+        br.push(ANAME, &v2, &vec!["Cargo.toml"]).await.unwrap();
 
-        let sr = br.sync(ANAME, &VersionReq::any(), &dest_sync).unwrap();
+        let sr = br
+            .sync(ANAME, &VersionReq::any(), &dest_sync)
+            .await
+            .unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v2, sr.artifact.version);
 
-        let sr = br.sync(ANAME, &VersionReq::any(), &dest_sync).unwrap();
+        let sr = br
+            .sync(ANAME, &VersionReq::any(), &dest_sync)
+            .await
+            .unwrap();
         assert_eq!(SyncStatus::UpToDate, sr.status);
         assert_eq!(v2, sr.artifact.version);
 
         // try downgrading to 1.2.x
         let sr = br
             .sync(ANAME, &VersionReq::parse("~1").unwrap(), &dest_sync)
+            .await
             .unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v12, sr.artifact.version);
         let sr = br
             .sync(ANAME, &VersionReq::parse("~1").unwrap(), &dest_sync)
+            .await
             .unwrap();
         assert_eq!(SyncStatus::UpToDate, sr.status);
         assert_eq!(v12, sr.artifact.version);
 
-        let sr = br.sync(ANAME, &VersionReq::any(), &dest_sync).unwrap();
+        let sr = br
+            .sync(ANAME, &VersionReq::any(), &dest_sync)
+            .await
+            .unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v2, sr.artifact.version);
     }
-    #[test]
-    fn test_alpha() {
+    #[tokio::test]
+    async fn test_alpha() {
         let mut br: Binrep<NOOPProgress> =
             Binrep::from_config(Config::create_file_test_config()).unwrap();
         let valpha = Version::parse("1.0.0-alpha1").unwrap();
-        br.push(ANAME, &valpha, &vec!["Cargo.toml"]).unwrap();
+        br.push(ANAME, &valpha, &vec!["Cargo.toml"]).await.unwrap();
 
         let dest_sync = tempfile::tempdir().unwrap();
 
         let sr = br
             .sync(ANAME, &super::parse_version_req("any").unwrap(), &dest_sync)
+            .await
             .unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(valpha, sr.artifact.version);
     }
 
-    #[test]
-    fn test_sync_file_presence() {
+    #[tokio::test]
+    async fn test_sync_file_presence() {
         let mut br: Binrep<NOOPProgress> =
             Binrep::from_config(Config::create_file_test_config()).unwrap();
         let v1 = Version::parse("1.0.0").unwrap();
@@ -341,9 +367,9 @@ mod test {
         std::fs::File::create(&path_v1).unwrap();
         std::fs::File::create(&path_v2).unwrap();
 
-        br.push("a", &v1, &vec![&path_v1]).unwrap();
-        br.push("a", &v12, &vec![&path_v1]).unwrap();
-        br.push("a", &v2, &vec![&path_v2]).unwrap();
+        br.push("a", &v1, &vec![&path_v1]).await.unwrap();
+        br.push("a", &v12, &vec![&path_v1]).await.unwrap();
+        br.push("a", &v2, &vec![&path_v2]).await.unwrap();
 
         let syncdest = tempdir().unwrap();
         let synced_path_v1 = path_concat2(syncdest.path(), "a-1.zip");
@@ -353,6 +379,7 @@ mod test {
         assert_eq!(
             SyncStatus::Updated,
             br.sync("a", &VersionReq::exact(&v1), syncdest.path())
+                .await
                 .unwrap()
                 .status,
         );
@@ -362,6 +389,7 @@ mod test {
         assert_eq!(
             SyncStatus::Updated,
             br.sync("a", &VersionReq::exact(&v12), syncdest.path())
+                .await
                 .unwrap()
                 .status,
         );
@@ -371,6 +399,7 @@ mod test {
         assert_eq!(
             SyncStatus::UpToDate,
             br.sync("a", &VersionReq::exact(&v12), syncdest.path())
+                .await
                 .unwrap()
                 .status,
         );
@@ -380,6 +409,7 @@ mod test {
         assert_eq!(
             SyncStatus::Updated,
             br.sync("a", &VersionReq::any(), syncdest.path())
+                .await
                 .unwrap()
                 .status,
         );

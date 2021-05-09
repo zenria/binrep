@@ -78,16 +78,16 @@ struct BatchConfig {
     sync_operations: Vec<SyncOperation>,
     slack: Option<SlackNotifier>,
 }
-
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
     let opt = Opt::from_args();
-    if let Err(e) = _main(opt) {
+    if let Err(e) = _main(opt).await {
         eprintln!("{} - {:?}", e, e);
         std::process::exit(1);
     }
 }
-fn _main(opt: Opt) -> Result<(), Error> {
+async fn _main(opt: Opt) -> Result<(), Error> {
     // ---- parse Batch config
     let batch_config: BatchConfig = resolve_config(&opt.batch_configuration_file, "batch.sane")
         .context("Unable to read batch.sane configuration file.")?;
@@ -119,7 +119,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
         .chain(get_operation_from_includes(batch_config.includes))
         .collect();
 
-    batch::sync(&mut binrep, operations, default_slack_notifier)?;
+    batch::sync(&mut binrep, operations, default_slack_notifier).await?;
     Ok(())
 }
 
@@ -175,7 +175,7 @@ mod batch {
         }
     }
 
-    pub fn sync<T>(
+    pub async fn sync<T>(
         binrep: &mut Binrep<T>,
         operations: Vec<super::SyncOperation>,
         default_slack_notifier: SlackNotifier,
@@ -198,11 +198,13 @@ mod batch {
                 operation.artifact_name,
                 operation.destination_dir.to_string_lossy()
             );
-            let result = binrep.sync(
-                &operation.artifact_name,
-                &operation.version_req,
-                &operation.destination_dir,
-            )?;
+            let result = binrep
+                .sync(
+                    &operation.artifact_name,
+                    &operation.version_req,
+                    &operation.destination_dir,
+                )
+                .await?;
             let slack_notifier = if let Some(op_slack_notifier) = &operation.slack {
                 op_slack_notifier
                     .clone()

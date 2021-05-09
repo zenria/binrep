@@ -5,7 +5,8 @@ use crate::progress::{ProgressReaderAdapter, ProgressReaderAsyncAdapter};
 use anyhow::Error;
 use atty::Stream;
 use futures::future::lazy;
-use futures_util::stream::TryStreamExt;
+use futures::StreamExt;
+use futures::TryStreamExt;
 use indicatif::{HumanBytes, ProgressBar, ProgressStyle};
 use rusoto_core::{ByteStream, HttpClient, Region, RusotoError};
 use rusoto_credential::ProfileProvider;
@@ -15,23 +16,23 @@ use rusoto_s3::{
 use std::cell::RefCell;
 use std::default::Default;
 use std::fs::File;
-use std::io::{BufWriter, Read, Write};
 use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-use tokio::time::{timeout, Timeout};
+use tokio::{
+    io::AsyncReadExt,
+    time::{timeout, Timeout},
+};
 use tokio::{
     runtime::{Handle, Runtime},
     time::error::Elapsed,
 };
 use tokio_util::codec;
-
 pub struct S3Backend<T: ProgressReporter> {
     s3client: S3Client,
     bucket: String,
     request_timeout: Duration,
-    runtime: Runtime,
     _progress_reporter: PhantomData<T>,
 }
 
@@ -82,23 +83,21 @@ impl<T: ProgressReporter> S3Backend<T> {
             profile_provider,
             Region::from_str(&opt.region)?,
         );
-        let runtime = tokio::runtime::Runtime::new()?;
         Ok(Self {
             s3client,
             bucket: opt.bucket.clone(),
             request_timeout: Duration::from_secs(opt.request_timeout_secs.unwrap_or(120)),
-            runtime,
             _progress_reporter: PhantomData,
         })
     }
 
-    fn get_body(&mut self, path: &str) -> Result<(ByteStream, Option<usize>), BackendError> {
+    async fn get_body(&mut self, path: &str) -> Result<(ByteStream, Option<usize>), BackendError> {
         let request = self.s3client.get_object(GetObjectRequest {
             bucket: self.bucket.clone(),
             key: path.to_string(),
             ..Default::default() // this one is hacky
         });
-        let output = self.execute_with_timeout(request)??;
+        let output = self.execute_with_timeout(request).await??;
         let size = output.content_length.map(|i| i as usize);
         match output.body {
             None => Err(S3BackendError::NoBodyInResponse)?,
@@ -106,37 +105,34 @@ impl<T: ProgressReporter> S3Backend<T> {
         }
     }
 
-    fn execute_with_timeout<R, F: std::future::Future<Output = R>>(
+    async fn execute_with_timeout<R, F: std::future::Future<Output = R>>(
         &self,
         fut: F,
     ) -> Result<R, Elapsed> {
         // the timeout function needs to be called in the context of a Tokio runtime, thus
         // we use the lazy trick to get our future
-        let timeout_future = self
-            .runtime
-            .block_on(lazy(|_| tokio::time::timeout(self.request_timeout, fut)));
-        self.runtime.block_on(timeout_future)
-    }
-
-    fn execute<R, F: std::future::Future<Output = R>>(&mut self, fut: F) -> R {
-        self.runtime.block_on(fut)
+        tokio::time::timeout(self.request_timeout, fut).await
     }
 }
-
+#[async_trait::async_trait(?Send)]
 impl<T> Backend<T> for S3Backend<T>
 where
     T: ProgressReporter,
     T::Output: Send + Sync + 'static,
 {
-    fn read_file(&mut self, path: &str) -> Result<String, BackendError> {
+    async fn read_file(&mut self, path: &str) -> Result<String, BackendError> {
         let mut buf = String::new();
         let progress = T::unnamed_ticker();
-        ProgressReaderAdapter::new(self.get_body(path)?.0.into_blocking_read(), progress)
-            .read_to_string(&mut buf)?;
+
+        let (body, body_size) = self.get_body(path).await?;
+
+        let mut body = ProgressReaderAsyncAdapter::new(body.into_async_read(), progress);
+
+        body.read_to_string(&mut buf).await?;
         Ok(buf)
     }
 
-    fn create_file(&mut self, path: &str, data: String) -> Result<(), BackendError> {
+    async fn create_file(&mut self, path: &str, data: String) -> Result<(), BackendError> {
         let req = PutObjectRequest {
             bucket: self.bucket.clone(),
             key: path.to_string(),
@@ -145,19 +141,20 @@ where
             ..Default::default()
         };
 
-        self.execute_with_timeout(self.s3client.put_object(req))??;
+        self.execute_with_timeout(self.s3client.put_object(req))
+            .await??;
 
         Ok(())
     }
 
-    fn push_file(&mut self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
+    async fn push_file(&mut self, local: PathBuf, remote: &str) -> Result<(), BackendError> {
         let meta = std::fs::metadata(&local)?;
 
         let progress = T::create(
             Some(format!("Uploading to {}", remote)),
             Some(meta.len() as usize),
         );
-        let file = self.execute(tokio::fs::File::open(local))?;
+        let file = tokio::fs::File::open(local).await?;
         let file = ProgressReaderAsyncAdapter::new(file, progress);
         let byte_stream =
             codec::FramedRead::new(file, codec::BytesCodec::new()).map_ok(|r| r.freeze());
@@ -170,19 +167,21 @@ where
             acl: Some("bucket-owner-full-control".to_string()),
             ..Default::default()
         };
-        self.execute_with_timeout(self.s3client.put_object(req))??;
+        self.execute_with_timeout(self.s3client.put_object(req))
+            .await??;
         Ok(())
     }
 
-    fn pull_file(&mut self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
-        let mut file = BufWriter::new(File::create(&local)?);
-        let (body, size) = self.get_body(remote)?;
-        let mut body = ProgressReaderAdapter::new(
-            body.into_blocking_read(),
+    async fn pull_file(&mut self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
+        let mut file = tokio::fs::File::create(&local).await?;
+        let (body, size) = self.get_body(remote).await?;
+        let mut body = ProgressReaderAsyncAdapter::new(
+            body.into_async_read(),
             T::create(Some(format!("downloading {}", remote)), size),
         );
 
-        std::io::copy(&mut body, &mut file)?;
+        tokio::io::copy(&mut body, &mut file).await?;
+
         Ok(())
     }
 }

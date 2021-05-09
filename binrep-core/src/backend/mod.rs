@@ -19,21 +19,22 @@ impl From<anyhow::Error> for BackendError {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 pub trait Backend<T: ProgressReporter> {
     /// read a text file from specified path
     ///
     /// The path is relative to the ROOT of the backend
-    fn read_file(&mut self, path: &str) -> Result<String, BackendError>;
+    async fn read_file(&mut self, path: &str) -> Result<String, BackendError>;
 
     /// create text a file in the specified path
     ///
     /// The path is relative to the ROOT of the backend
-    fn create_file(&mut self, path: &str, data: String) -> Result<(), BackendError>;
+    async fn create_file(&mut self, path: &str, data: String) -> Result<(), BackendError>;
 
-    fn push_file(&mut self, local: PathBuf, remote: &str) -> Result<(), BackendError>;
+    async fn push_file(&mut self, local: PathBuf, remote: &str) -> Result<(), BackendError>;
 
     /// Pull a file from the backend to a local file.
     ///
     /// It does not check if the local file exists!
-    fn pull_file(&mut self, remote: &str, local: PathBuf) -> Result<(), BackendError>;
+    async fn pull_file(&mut self, remote: &str, local: PathBuf) -> Result<(), BackendError>;
 }

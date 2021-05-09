@@ -89,17 +89,17 @@ struct Opt {
     #[structopt(subcommand)]
     command: Command,
 }
-
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
     let opt = Opt::from_args();
-    if let Err(e) = _main(opt) {
+    if let Err(e) = _main(opt).await {
         eprintln!("{} - {:?}", e, e);
         std::process::exit(1);
     }
 }
 
-fn _main(opt: Opt) -> Result<(), Error> {
+async fn _main(opt: Opt) -> Result<(), Error> {
     // If BINREP_CONFIG environment variable is provided, use it!
     let env_config = std::env::var("BINREP_CONFIG");
     let provided_config = match env_config {
@@ -112,17 +112,22 @@ fn _main(opt: Opt) -> Result<(), Error> {
     match opt.command {
         // LIST----------
         Command::List(opt) => match opt.artifact_name {
-            None => print_list(binrep.list_artifacts()?.artifacts),
-            Some(artifact_name) => print_list(binrep.list_artifact_versions(
-                &artifact_name,
-                &parse_optional_version_req(opt.version_req)?,
-            )?),
+            None => print_list(binrep.list_artifacts().await?.artifacts),
+            Some(artifact_name) => print_list(
+                binrep
+                    .list_artifact_versions(
+                        &artifact_name,
+                        &parse_optional_version_req(opt.version_req)?,
+                    )
+                    .await?,
+            ),
         },
         Command::Push(opt) => {
             let artifact_name = &opt.artifact_name;
             let artifact_version = match opt.version.as_str() {
                 "auto" => binrep
                     .last_version(artifact_name, &VersionReq::any())
+                    .await
                     .or_else::<Error, _>(|e| {
                         // ignore errors and go on with default version
                         Ok(Some((0, 0, 0).into()))
@@ -135,7 +140,9 @@ fn _main(opt: Opt) -> Result<(), Error> {
                 v => Version::parse(v)?,
             };
             let artifact_files = opt.files;
-            let pushed = binrep.push(artifact_name, &artifact_version, &artifact_files)?;
+            let pushed = binrep
+                .push(artifact_name, &artifact_version, &artifact_files)
+                .await?;
             println!("Pushed {} {}", artifact_name, pushed);
             match send_slack_push_notif(&slack_configuration.into(), artifact_name, &pushed) {
                 Ok(sent) => {
@@ -150,7 +157,9 @@ fn _main(opt: Opt) -> Result<(), Error> {
             let artifact_name = &opt.artifact_name;
             let artifact_version = Version::parse(&opt.version)?;
             let destination_dir = opt.destination_dir;
-            let pulled = binrep.pull(artifact_name, &artifact_version, &destination_dir, true)?;
+            let pulled = binrep
+                .pull(artifact_name, &artifact_version, &destination_dir, true)
+                .await?;
             println!("Pulled {} {}", artifact_name, pulled);
             exec(&pulled, &destination_dir, &opt.exec_command)?;
         }
@@ -158,7 +167,9 @@ fn _main(opt: Opt) -> Result<(), Error> {
             let artifact_name = &opt.artifact_name;
             let version_req = parse_version_req(&opt.version_req)?;
             let destination_dir = opt.destination_dir;
-            let sync = binrep.sync(artifact_name, &version_req, &destination_dir)?;
+            let sync = binrep
+                .sync(artifact_name, &version_req, &destination_dir)
+                .await?;
             let print_output = opt.exec_command.is_none();
             match sync.status {
                 SyncStatus::UpToDate => {
@@ -177,7 +188,7 @@ fn _main(opt: Opt) -> Result<(), Error> {
         Command::Inspect(opt) => {
             let artifact_name = &opt.artifact_name;
             let artifact_version = Version::parse(&opt.version)?;
-            let artifact = binrep.artifact(artifact_name, &artifact_version)?;
+            let artifact = binrep.artifact(artifact_name, &artifact_version).await?;
             println!("{} {}", artifact_name, artifact);
         }
         Command::Utils(opt) => match opt {
