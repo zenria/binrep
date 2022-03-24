@@ -1,6 +1,6 @@
 [package]
 name = "binrep-core"
-version = "0.14.1"
+version = "0.15.0"
 authors = ["Philippe GASSMANN <pgassmann@scoop.it>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -13,20 +13,20 @@ thiserror="1"
 ring={version="0.16", features=["std"]}
 log="0.4"
 shellexpand = "2.0"
-semver={ version="0.11", features=["serde"]}
+semver={ version="1.0", features=["serde"]}
 base64="0.13"
 tempfile="3"
 chrono="0.4"
-rusoto_s3="0.46"
-rusoto_core="0.46"
-rusoto_credential = "0.46"
+rusoto_s3="0.47"
+rusoto_core="0.47"
+rusoto_credential = "0.47"
 fs2="0.4.3"
 # statically link openssl to our binary so we can run on ubuntu:* even if build from a debian strech version
 openssl = { version = "0.10", features = ["vendored"] }
 slack-hook2 = {git="https://github.com/zenria/rust-slack", branch="tokio-1", features=["rustls-tls"]}
 crossbeam="0.8"
 tokio={version="1.5", features=["time", "rt-multi-thread", "fs", "macros", "io-util"]}
-tokio-util = {version="0.6", features=["codec"]}
+tokio-util = {version="0.7", features=["codec"]}
 futures-util="0.3"
 futures="0.3"
 indicatif="0.16"

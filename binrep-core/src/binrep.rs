@@ -255,7 +255,7 @@ mod sync {
 
 pub fn parse_version_req(input: &str) -> Result<VersionReq, Error> {
     Ok(match input {
-        v if v == "latest" || v == "any" => VersionReq::any(),
+        v if v == "latest" || v == "any" => VersionReq::STAR,
         v => VersionReq::parse(v)?,
     })
 }
@@ -265,6 +265,7 @@ mod test {
     use super::*;
     use crate::file_utils::path_concat2;
     use crate::progress::NOOPProgress;
+    use semver::Comparator;
     use std::fs::metadata;
     use std::path::PathBuf;
     use tempfile::tempdir;
@@ -283,34 +284,22 @@ mod test {
 
         let dest_sync = tempfile::tempdir().unwrap();
 
-        let sr = br
-            .sync(ANAME, &VersionReq::any(), &dest_sync)
-            .await
-            .unwrap();
+        let sr = br.sync(ANAME, &VersionReq::STAR, &dest_sync).await.unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v1, sr.artifact.version);
 
-        let sr = br
-            .sync(ANAME, &VersionReq::any(), &dest_sync)
-            .await
-            .unwrap();
+        let sr = br.sync(ANAME, &VersionReq::STAR, &dest_sync).await.unwrap();
         assert_eq!(SyncStatus::UpToDate, sr.status);
         assert_eq!(v1, sr.artifact.version);
 
         br.push(ANAME, &v12, &vec!["Cargo.toml"]).await.unwrap();
         br.push(ANAME, &v2, &vec!["Cargo.toml"]).await.unwrap();
 
-        let sr = br
-            .sync(ANAME, &VersionReq::any(), &dest_sync)
-            .await
-            .unwrap();
+        let sr = br.sync(ANAME, &VersionReq::STAR, &dest_sync).await.unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v2, sr.artifact.version);
 
-        let sr = br
-            .sync(ANAME, &VersionReq::any(), &dest_sync)
-            .await
-            .unwrap();
+        let sr = br.sync(ANAME, &VersionReq::STAR, &dest_sync).await.unwrap();
         assert_eq!(SyncStatus::UpToDate, sr.status);
         assert_eq!(v2, sr.artifact.version);
 
@@ -328,10 +317,7 @@ mod test {
         assert_eq!(SyncStatus::UpToDate, sr.status);
         assert_eq!(v12, sr.artifact.version);
 
-        let sr = br
-            .sync(ANAME, &VersionReq::any(), &dest_sync)
-            .await
-            .unwrap();
+        let sr = br.sync(ANAME, &VersionReq::STAR, &dest_sync).await.unwrap();
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(v2, sr.artifact.version);
     }
@@ -347,13 +333,35 @@ mod test {
         let sr = br
             .sync(ANAME, &super::parse_version_req("any").unwrap(), &dest_sync)
             .await
-            .unwrap();
+            .expect_err("any version does not matches prerelease");
+
+        let sr = br
+            .sync(
+                ANAME,
+                &super::parse_version_req(">=1.0.0-alph").unwrap(),
+                &dest_sync,
+            )
+            .await
+            .expect(">=1.0.0-alph MUST matches 1.0.0-alpha1");
+
         assert_eq!(SyncStatus::Updated, sr.status);
         assert_eq!(valpha, sr.artifact.version);
     }
 
     #[tokio::test]
     async fn test_sync_file_presence() {
+        fn exact(v: &Version) -> VersionReq {
+            VersionReq {
+                comparators: vec![Comparator {
+                    op: semver::Op::Exact,
+                    major: v.major,
+                    minor: Some(v.minor),
+                    patch: Some(v.patch),
+                    pre: v.pre.clone(),
+                }],
+            }
+        }
+
         let mut br: Binrep<NOOPProgress> =
             Binrep::from_config(Config::create_file_test_config()).unwrap();
         let v1 = Version::parse("1.0.0").unwrap();
@@ -378,7 +386,7 @@ mod test {
         // sync v1
         assert_eq!(
             SyncStatus::Updated,
-            br.sync("a", &VersionReq::exact(&v1), syncdest.path())
+            br.sync("a", &exact(&v1), syncdest.path())
                 .await
                 .unwrap()
                 .status,
@@ -388,7 +396,7 @@ mod test {
         // sync v12
         assert_eq!(
             SyncStatus::Updated,
-            br.sync("a", &VersionReq::exact(&v12), syncdest.path())
+            br.sync("a", &exact(&v12), syncdest.path())
                 .await
                 .unwrap()
                 .status,
@@ -398,7 +406,7 @@ mod test {
         // re-sync v12
         assert_eq!(
             SyncStatus::UpToDate,
-            br.sync("a", &VersionReq::exact(&v12), syncdest.path())
+            br.sync("a", &exact(&v12), syncdest.path())
                 .await
                 .unwrap()
                 .status,
@@ -408,7 +416,7 @@ mod test {
         // sync "latest"
         assert_eq!(
             SyncStatus::Updated,
-            br.sync("a", &VersionReq::any(), syncdest.path())
+            br.sync("a", &VersionReq::STAR, syncdest.path())
                 .await
                 .unwrap()
                 .status,

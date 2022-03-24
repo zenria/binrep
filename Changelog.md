@@ -1,7 +1,13 @@
+## 0.15.0
+
+- update deps (semver, tokio, rusoto)
+- BREAKING: semver crate updated its policy about prereleases
+
 ## 0.14.1 (0.14.0 yanked)
 
 - going full async
 - dramatic network performance improvment (100x faster transfers)
+
 ## 0.13.0
 
 - upgrade to tokio 1.2 ecosystem

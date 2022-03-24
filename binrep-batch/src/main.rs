@@ -148,8 +148,8 @@ mod batch {
     use binrep_core::extended_exec::Line;
     use binrep_core::metadata::Artifact;
     use binrep_core::progress::ProgressReporter;
+    use binrep_core::semver::VersionReq;
     use binrep_core::slack_hook2::{AttachmentBuilder, PayloadBuilder};
-    use semver::VersionReq;
     use std::convert::{TryFrom, TryInto};
     use std::path::PathBuf;
 

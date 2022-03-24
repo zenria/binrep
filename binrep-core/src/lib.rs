@@ -22,3 +22,4 @@ pub mod slack;
 
 // reexport slack_hook2
 pub use slack_hook2;
+pub use semver;

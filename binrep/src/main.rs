@@ -9,10 +9,10 @@ use binrep_core::binrep::{Binrep, SyncStatus};
 use binrep_core::exec::exec;
 use binrep_core::metadata::Artifact;
 use binrep_core::progress::InteractiveProgressReporter;
+use binrep_core::semver::{Version, VersionReq};
 use binrep_core::slack::{SlackConfig, WebhookConfig};
 use binrep_core::slack_hook2::{AttachmentBuilder, PayloadBuilder};
 use ring::signature::KeyPair;
-use semver::{Version, VersionReq};
 use std::fmt::Display;
 
 #[derive(StructOpt)]
@@ -126,17 +126,17 @@ async fn _main(opt: Opt) -> Result<(), Error> {
             let artifact_name = &opt.artifact_name;
             let artifact_version = match opt.version.as_str() {
                 "auto" => binrep
-                    .last_version(artifact_name, &VersionReq::any())
+                    .last_version(artifact_name, &VersionReq::STAR)
                     .await
                     .or_else::<Error, _>(|e| {
                         // ignore errors and go on with default version
-                        Ok(Some((0, 0, 0).into()))
+                        Ok(Some(Version::new(0, 0, 0)))
                     })?
                     .map(|mut v| {
-                        v.increment_patch();
+                        v.patch += 1;
                         v
                     })
-                    .unwrap_or((0, 0, 1).into()),
+                    .unwrap_or(Version::new(0, 0, 1)),
                 v => Version::parse(v)?,
             };
             let artifact_files = opt.files;
@@ -207,7 +207,7 @@ async fn _main(opt: Opt) -> Result<(), Error> {
 
 pub fn parse_optional_version_req(input: Option<String>) -> Result<VersionReq, Error> {
     Ok(match &input {
-        None => VersionReq::any(),
+        None => VersionReq::STAR,
         Some(v) => parse_version_req(&v)?,
     })
 }
