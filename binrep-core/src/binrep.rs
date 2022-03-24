@@ -14,7 +14,7 @@ use slack_hook3::{AttachmentBuilder, Payload, PayloadBuilder, Slack};
 use std::fs::metadata;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tempfile::tempdir;
+use tempfile::{tempdir, tempdir_in};
 
 pub struct Binrep<T: ProgressReporter> {
     repository: Repository<T>,
@@ -161,7 +161,7 @@ where
             }
             meta => {
                 // pull artifact to tempdir
-                let temp_sync_dir = tempdir()?;
+                let temp_sync_dir = tempdir_in(&destination_dir)?;
                 let artifact = self
                     .repository
                     .pull_artifact(artifact_name, &latest, &temp_sync_dir, true)
