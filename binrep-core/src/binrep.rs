@@ -10,7 +10,7 @@ use anyhow::Error;
 use fs2::FileExt;
 use semver::{Version, VersionReq};
 use serde::de::DeserializeOwned;
-use slack_hook2::{AttachmentBuilder, Payload, PayloadBuilder, Slack};
+use slack_hook3::{AttachmentBuilder, Payload, PayloadBuilder, Slack};
 use std::fs::metadata;
 use std::path::{Path, PathBuf};
 use std::time::Duration;

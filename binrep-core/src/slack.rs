@@ -1,7 +1,7 @@
 //! Helper module for slack notifications
 use serde::Deserialize;
 use serde::Serialize;
-use slack_hook2::{PayloadBuilder, Slack};
+use slack_hook3::{PayloadBuilder, Slack};
 
 /// A config where any value is optional ;)
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
@@ -32,7 +32,7 @@ impl WebhookConfig {
         }
     }
 
-    pub async fn send<F: Fn() -> slack_hook2::Result<PayloadBuilder>>(
+    pub async fn send<F: Fn() -> slack_hook3::Result<PayloadBuilder>>(
         &self,
         payload_builder: F,
     ) -> anyhow::Result<bool> {

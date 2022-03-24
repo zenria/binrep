@@ -23,7 +23,7 @@ rusoto_credential = "0.47"
 fs2="0.4.3"
 # statically link openssl to our binary so we can run on ubuntu:* even if build from a debian strech version
 openssl = { version = "0.10", features = ["vendored"] }
-slack-hook2 = {git="https://github.com/zenria/rust-slack", branch="tokio-1", features=["rustls-tls"]}
+slack-hook3 = "0.11"
 crossbeam="0.8"
 tokio={version="1.5", features=["time", "rt-multi-thread", "fs", "macros", "io-util"]}
 tokio-util = {version="0.7", features=["codec"]}

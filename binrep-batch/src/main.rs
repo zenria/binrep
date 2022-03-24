@@ -8,7 +8,7 @@ use structopt::StructOpt;
 
 use binrep_core::config_resolver::resolve_config;
 use binrep_core::{binrep, file_utils};
-use binrep_core::{binrep::Binrep, slack_hook2};
+use binrep_core::{binrep::Binrep, slack_hook3};
 use glob::glob;
 use serde::Deserialize;
 use serde::Serialize;
@@ -16,8 +16,8 @@ use serde::Serialize;
 use binrep_core::extended_exec::{Line, Type};
 use binrep_core::progress::InteractiveProgressReporter;
 use binrep_core::slack::{SlackConfig, WebhookConfig};
-use binrep_core::slack_hook2::PayloadBuilder;
 use log::debug;
+use slack_hook3::PayloadBuilder;
 
 #[derive(StructOpt)]
 struct Opt {
@@ -58,7 +58,7 @@ impl SlackNotifier {
         }
     }
 
-    pub async fn send<F: Fn() -> slack_hook2::Result<PayloadBuilder>>(
+    pub async fn send<F: Fn() -> slack_hook3::Result<PayloadBuilder>>(
         &self,
         payload_builder: F,
     ) -> anyhow::Result<bool> {
@@ -149,7 +149,7 @@ mod batch {
     use binrep_core::metadata::Artifact;
     use binrep_core::progress::ProgressReporter;
     use binrep_core::semver::VersionReq;
-    use binrep_core::slack_hook2::{AttachmentBuilder, PayloadBuilder};
+    use binrep_core::slack_hook3::{AttachmentBuilder, PayloadBuilder};
     use std::convert::{TryFrom, TryInto};
     use std::path::PathBuf;
 

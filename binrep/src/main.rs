@@ -11,7 +11,7 @@ use binrep_core::metadata::Artifact;
 use binrep_core::progress::InteractiveProgressReporter;
 use binrep_core::semver::{Version, VersionReq};
 use binrep_core::slack::{SlackConfig, WebhookConfig};
-use binrep_core::slack_hook2::{AttachmentBuilder, PayloadBuilder};
+use binrep_core::slack_hook3::{AttachmentBuilder, PayloadBuilder};
 use ring::signature::KeyPair;
 use std::fmt::Display;
 
