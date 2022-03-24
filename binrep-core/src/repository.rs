@@ -14,7 +14,7 @@ use std::fs::File;
 use std::io::{BufReader, ErrorKind, Read};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use tempfile::{tempdir, TempDir};
+use tempfile::{tempdir, tempdir_in, TempDir};
 
 use crate::crypto;
 use crate::file_utils;
@@ -295,7 +295,9 @@ where
 
         let artifact = self.get_artifact(artifact_name, artifact_version).await?;
 
-        let tmp_dir = tempdir()?;
+        file_utils::mkdirs(&destination_dir)?;
+
+        let tmp_dir = tempdir_in(&destination_dir)?;
 
         let mut temporary_file_paths: Vec<PathBuf> = Vec::new();
         for file in &artifact.files {
@@ -309,8 +311,6 @@ where
         // move them to the final destination
         let mut dest_path = PathBuf::new();
         dest_path.push(destination_dir);
-
-        file_utils::mkdirs(&dest_path)?;
 
         // check file presence
         let dest_file_paths =
