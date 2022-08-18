@@ -17,6 +17,7 @@ impl ProgressReporter for IndicatifProgressReporter {
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("[{elapsed_precise}] {bar:40.cyan/blue} {bytes:>7}/{total_bytes:7} {msg}")
+                .unwrap()
                 .progress_chars("##-"),
         );
         if let Some(name) = name {
