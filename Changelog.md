@@ -1,9 +1,13 @@
+## 0.15.1
+
+- update deps (indicatif, tokio, rusoto*)
+
 ## 0.15.0
 
 - update deps (semver, tokio, rusoto)
 - BREAKING: semver crate updated its policy about prereleases
 - temporary directories used to pull files are now created in the destination directory
-  to workaround what seems to be a Rust bug on libc error reporting on cross links between 
+  to workaround what seems to be a Rust bug on libc error reporting on cross links between
   filesystem
 
 ## 0.14.1 (0.14.0 yanked)
