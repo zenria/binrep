@@ -1,6 +1,6 @@
 [package]
 name = "binrep"
-version = "0.15.1"
+version = "0.15.2"
 authors = ["Philippe GASSMANN <pgassmann@scoop.it>"]
 edition = "2018"
 
@@ -11,7 +11,7 @@ binrep-core={path="../binrep-core"}
 anyhow="1"
 structopt = "0.3"
 log="0.4"
-env_logger ="0.9"
+env_logger ="0.10"
 ring="0.16"
-base64="0.13"
+base64="0.20"
 tokio={version="^1.5", features=["macros"]}

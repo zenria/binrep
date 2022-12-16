@@ -1,3 +1,7 @@
+## 0.15.2
+
+- add read timeout whe pulling files from S3
+
 ## 0.15.1
 
 - update deps (indicatif, tokio, rusoto*)

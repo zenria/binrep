@@ -28,6 +28,7 @@ use tokio::{
     runtime::{Handle, Runtime},
     time::error::Elapsed,
 };
+use tokio_io_timeout::TimeoutReader;
 use tokio_util::codec;
 pub struct S3Backend<T: ProgressReporter> {
     s3client: S3Client,
@@ -175,12 +176,14 @@ where
     async fn pull_file(&mut self, remote: &str, local: PathBuf) -> Result<(), BackendError> {
         let mut file = tokio::fs::File::create(&local).await?;
         let (body, size) = self.get_body(remote).await?;
-        let mut body = ProgressReaderAsyncAdapter::new(
-            body.into_async_read(),
+        let mut body = TimeoutReader::new(body.into_async_read());
+        body.set_timeout(Some(Duration::from_secs(30)));
+        let body = ProgressReaderAsyncAdapter::new(
+            body,
             T::create(Some(format!("downloading {}", remote)), size),
         );
 
-        tokio::io::copy(&mut body, &mut file).await?;
+        tokio::io::copy(&mut Box::pin(body), &mut file).await?;
 
         Ok(())
     }
