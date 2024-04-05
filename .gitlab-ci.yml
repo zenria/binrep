@@ -7,7 +7,7 @@ stages:
 build:
   stage: build
   script:
-    - cargo build --all --target=musl --all-targets --color=always
+    - cargo build --all --target=x86_64-unknown-linux-musl --all-targets --color=always
     - RUST_BACKTRACE=1 cargo test
     ## basic upload / download checks
     - target/debug/binrep push binrep-ci-test auto target/debug/binrep target/debug/binrep-batch
@@ -22,7 +22,7 @@ release:
       - target/release/binrep
       - target/release/binrep-batch
   script:
-    - cargo build --target=musl --release --all --all-targets --color=always
+    - cargo build --target=x86_64-unknown-linux-musl --release --all --all-targets --color=always
 
 binrep_publish:
   stage: deploy
