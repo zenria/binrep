@@ -1,17 +1,17 @@
 [package]
 name = "binrep"
-version = "0.15.2"
+version = "0.15.3"
 authors = ["Philippe GASSMANN <pgassmann@scoop.it>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-binrep-core={path="../binrep-core"}
-anyhow="1"
+binrep-core = { path = "../binrep-core" }
+anyhow = "1"
 structopt = "0.3"
-log="0.4"
-env_logger ="0.10"
-ring="0.16"
-base64="0.20"
-tokio={version="^1.5", features=["macros"]}
+log = "0.4"
+env_logger = "0.11"
+ring = "0.17"
+data-encoding = "2"
+tokio = { version = "^1.5", features = ["macros"] }

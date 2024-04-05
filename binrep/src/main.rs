@@ -199,8 +199,8 @@ async fn _main(opt: Opt) -> Result<(), Error> {
                     })?;
                 println!(
                     "pkcs8: {}\npublic_key: {}",
-                    base64::encode(&priv_key),
-                    base64::encode(&pub_key)
+                    data_encoding::BASE64.encode(&priv_key),
+                    data_encoding::BASE64.encode(&pub_key)
                 );
             }
         },

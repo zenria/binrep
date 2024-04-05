@@ -1,20 +1,20 @@
 [package]
 name = "binrep-batch"
-version = "0.15.2"
+version = "0.15.3"
 authors = ["Philippe GASSMANN <pgassmann@scoop.it>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-binrep-core={path="../binrep-core"}
-serde={ version = "1.0", features=["derive"] }
+binrep-core = { path = "../binrep-core" }
+serde = { version = "1.0", features = ["derive"] }
 sane = "0.2"
-anyhow="1"
-glob="0.3"
+anyhow = "1"
+glob = "0.3"
 structopt = "0.3"
-log="0.4"
-env_logger ="0.10"
-hostname="*"
-tempfile="3"
-tokio={version="^1.5", features=["macros"]}
+log = "0.4"
+env_logger = "0.10"
+hostname = "*"
+tempfile = "3"
+tokio = { version = "^1.5", features = ["macros"] }
