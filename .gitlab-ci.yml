@@ -19,8 +19,8 @@ release:
     - tags
   artifacts:
     paths:
-      - target/release/binrep
-      - target/release/binrep-batch
+      - target/x86_64-unknown-linux-musl/binrep
+      - target/x86_64-unknown-linux-musl/binrep-batch
   script:
     - cargo build --target=x86_64-unknown-linux-musl --release --all --all-targets --color=always
 
@@ -29,6 +29,6 @@ binrep_publish:
   only:
     - tags
   script:
-    - chmod +x target/release/binrep
+    - chmod +x target/x86_64-unknown-linux-musl/binrep
     - target/release/binrep push binrep $CI_COMMIT_TAG target/x86_64-unknown-linux-musl/*
 
