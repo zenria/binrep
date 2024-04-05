@@ -219,10 +219,9 @@ where
         let mut unix_mode = Vec::new();
         let mut to_sign = String::new();
         for file in files {
-            let digest = base64::encode(&crypto::digest_file(
-                file,
-                publish_algorithm.checksum_method.algorithm(),
-            )?);
+            let digest = data_encoding::BASE64.encode(
+                crypto::digest_file(file, publish_algorithm.checksum_method.algorithm())?.as_ref(),
+            );
             let filename = file
                 .as_ref()
                 .iter()
@@ -244,7 +243,8 @@ where
         let signature = Signature {
             key_id: publish_algorithm.signer.key_id(),
             signature_method: publish_algorithm.signer.signature_method(),
-            signature: base64::encode(&publish_algorithm.signer.sign(to_sign.as_bytes())?),
+            signature: data_encoding::BASE64
+                .encode(&publish_algorithm.signer.sign(to_sign.as_bytes())?),
         };
 
         let artifact = Artifact {
@@ -366,10 +366,9 @@ where
         }
 
         // let's checksum the file.
-        let digest = base64::encode(&crypto::digest_file(
-            dest_path.clone(),
-            file.checksum_method.algorithm(),
-        )?);
+        let digest = data_encoding::BASE64.encode(
+            crypto::digest_file(dest_path.clone(), file.checksum_method.algorithm())?.as_ref(),
+        );
         // verify the checksum
         if digest != file.checksum {
             Err(RepositoryError::WrongFileChecksum(file.name.clone()))?;

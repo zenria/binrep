@@ -134,7 +134,8 @@ impl Config {
             })?;
 
         // decode key & validate key length
-        base64::decode(key)
+        data_encoding::BASE64
+            .decode(key.as_bytes())
             .map_err(|e| ConfigValidationError::HmacSigningKeyNotFound {
                 key_id: key.clone(),
             })

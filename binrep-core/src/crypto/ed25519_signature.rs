@@ -79,34 +79,35 @@ impl ED25519Key {
     fn get_public_key(&self) -> Result<Vec<u8>, ConfigValidationError> {
         match self {
             ED25519Key::SignAndVerify { pkcs8 } => {
-                let key_pair =
-                    signature::Ed25519KeyPair::from_pkcs8(&base64::decode(pkcs8).map_err(|e| {
-                        ConfigValidationError::MalformedED25519Key {
+                let key_pair = signature::Ed25519KeyPair::from_pkcs8(
+                    &data_encoding::BASE64
+                        .decode(pkcs8.as_bytes())
+                        .map_err(|e| ConfigValidationError::MalformedED25519Key {
                             cause: e.to_string(),
-                        }
-                    })?)
-                    .map_err(|key_rejected| {
-                        ConfigValidationError::MalformedED25519Key {
-                            cause: key_rejected.to_string(),
-                        }
-                    })?;
+                        })?,
+                )
+                .map_err(|key_rejected| {
+                    ConfigValidationError::MalformedED25519Key {
+                        cause: key_rejected.to_string(),
+                    }
+                })?;
                 Ok(Vec::from(key_pair.public_key().as_ref()))
             }
-            ED25519Key::Verify { public_key } => {
-                base64::decode(public_key).map_err(|e| ConfigValidationError::MalformedED25519Key {
+            ED25519Key::Verify { public_key } => data_encoding::BASE64
+                .decode(public_key.as_bytes())
+                .map_err(|e| ConfigValidationError::MalformedED25519Key {
                     cause: e.to_string(),
-                })
-            }
+                }),
         }
     }
 
     fn get_private_key(&self) -> Result<Vec<u8>, ConfigValidationError> {
         match self {
-            ED25519Key::SignAndVerify { pkcs8 } => {
-                base64::decode(pkcs8).map_err(|e| ConfigValidationError::MalformedED25519Key {
+            ED25519Key::SignAndVerify { pkcs8 } => data_encoding::BASE64
+                .decode(pkcs8.as_bytes())
+                .map_err(|e| ConfigValidationError::MalformedED25519Key {
                     cause: e.to_string(),
-                })
-            }
+                }),
             ED25519Key::Verify { .. } => Err(ConfigValidationError::MalformedED25519Key {
                 cause: "PKCS8 key data is needed for signing".to_string(),
             }),

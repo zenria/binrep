@@ -124,6 +124,9 @@ impl Artifact {
         let verifier =
             config.get_verifier(&self.signature.signature_method, &self.signature.key_id)?;
 
-        Ok(verifier.verify(&msg, base64::decode(&self.signature.signature)?))
+        Ok(verifier.verify(
+            &msg,
+            data_encoding::BASE64.decode(self.signature.signature.as_bytes())?,
+        ))
     }
 }

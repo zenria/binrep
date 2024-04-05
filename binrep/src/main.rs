@@ -193,7 +193,10 @@ async fn _main(opt: Opt) -> Result<(), Error> {
         }
         Command::Utils(opt) => match opt {
             UtilsOpt::GenerateED25519KeyPar => {
-                let (priv_key, pub_key) = generate_ed25519_key_pair()?;
+                let (priv_key, pub_key) =
+                    generate_ed25519_key_pair().map_err(|ring_unspecified_error| {
+                        anyhow::anyhow!({ ring_unspecified_error })
+                    })?;
                 println!(
                     "pkcs8: {}\npublic_key: {}",
                     base64::encode(&priv_key),

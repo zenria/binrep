@@ -1,3 +1,7 @@
+## 0.15.3
+
+- upgrade all dependencies
+
 ## 0.15.2
 
 - add read timeout whe pulling files from S3
