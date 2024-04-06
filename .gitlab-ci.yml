@@ -8,7 +8,7 @@ build:
   stage: build
   script:
     - cargo build --all --target=x86_64-unknown-linux-musl --all-targets --color=always
-    - RUST_BACKTRACE=1 cargo --target=x86_64-unknown-linux-musl test
+    - RUST_BACKTRACE=1 cargo test --target=x86_64-unknown-linux-musl
     ## basic upload / download checks
     - target/x86_64-unknown-linux-musl/debug/binrep push binrep-ci-test auto target/x86_64-unknown-linux-musl/debug/binrep target/x86_64-unknown-linux-musl/debug/binrep-batch
     - target/x86_64-unknown-linux-musl/debug/binrep sync binrep-ci-test latest sync-output-dir
