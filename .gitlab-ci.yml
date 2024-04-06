@@ -10,6 +10,7 @@ build:
     - cargo build --all --target=x86_64-unknown-linux-musl --all-targets --color=always
     - RUST_BACKTRACE=1 cargo test
     ## basic upload / download checks
+    - find target
     - target/x86_64-unknown-linux-musl/binrep push binrep-ci-test auto target/debug/binrep target/debug/binrep-batch
     - target/x86_64-unknown-linux-musl/binrep sync binrep-ci-test latest sync-output-dir
 
