@@ -8,11 +8,10 @@ build:
   stage: build
   script:
     - cargo build --all --target=x86_64-unknown-linux-musl --all-targets --color=always
-    - RUST_BACKTRACE=1 cargo test
+    - RUST_BACKTRACE=1 cargo --target=x86_64-unknown-linux-musl test
     ## basic upload / download checks
-    - find target
-    - target/x86_64-unknown-linux-musl/binrep push binrep-ci-test auto target/debug/binrep target/debug/binrep-batch
-    - target/x86_64-unknown-linux-musl/binrep sync binrep-ci-test latest sync-output-dir
+    - target/x86_64-unknown-linux-musl/debug/binrep push binrep-ci-test auto target/x86_64-unknown-linux-musl/debug/binrep target/x86_64-unknown-linux-musl/debug/binrep-batch
+    - target/x86_64-unknown-linux-musl/debug/binrep sync binrep-ci-test latest sync-output-dir
 
 release:
   stage: build
@@ -20,8 +19,8 @@ release:
     - tags
   artifacts:
     paths:
-      - target/x86_64-unknown-linux-musl/binrep
-      - target/x86_64-unknown-linux-musl/binrep-batch
+      - target/x86_64-unknown-linux-musl/release/binrep
+      - target/x86_64-unknown-linux-musl/release/binrep-batch
   script:
     - cargo build --target=x86_64-unknown-linux-musl --release --all --all-targets --color=always
 
@@ -30,6 +29,6 @@ binrep_publish:
   only:
     - tags
   script:
-    - chmod +x target/x86_64-unknown-linux-musl/binrep
-    - target/release/binrep push binrep $CI_COMMIT_TAG target/x86_64-unknown-linux-musl/*
+    - chmod +x target/x86_64-unknown-linux-musl/release binrep
+    - target/x86_64-unknown-linux-musl/release/binrep push binrep $CI_COMMIT_TAG target/x86_64-unknown-linux-musl/release/*
 
