@@ -29,6 +29,6 @@ binrep_publish:
   only:
     - tags
   script:
-    - chmod +x target/x86_64-unknown-linux-musl/release binrep
+    - chmod +x target/x86_64-unknown-linux-musl/release/*
     - target/x86_64-unknown-linux-musl/release/binrep push binrep $CI_COMMIT_TAG target/x86_64-unknown-linux-musl/release/*
 
