@@ -1,5 +1,9 @@
 image: 'registry.scoopit.io/scoopit-runner'
 
+variables:
+  CARGO_BUILD_TARGET: x86_64-unknown-linux-musl
+
+
 stages:
   - build
   - deploy
@@ -7,8 +11,8 @@ stages:
 build:
   stage: build
   script:
-    - cargo build --all --target=x86_64-unknown-linux-musl --all-targets --color=always
-    - RUST_BACKTRACE=1 cargo test --target=x86_64-unknown-linux-musl
+    - cargo build --all --all-targets --color=always
+    - RUST_BACKTRACE=1 cargo test
     ## basic upload / download checks
     - target/x86_64-unknown-linux-musl/debug/binrep push binrep-ci-test auto target/x86_64-unknown-linux-musl/debug/binrep target/x86_64-unknown-linux-musl/debug/binrep-batch
     - target/x86_64-unknown-linux-musl/debug/binrep sync binrep-ci-test latest sync-output-dir
@@ -22,7 +26,7 @@ release:
       - target/x86_64-unknown-linux-musl/release/binrep
       - target/x86_64-unknown-linux-musl/release/binrep-batch
   script:
-    - cargo build --target=x86_64-unknown-linux-musl --release --all --all-targets --color=always
+    - cargo build --release --all --all-targets --color=always
 
 binrep_publish:
   stage: deploy
