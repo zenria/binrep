@@ -1,10 +1,11 @@
-## 0.15.4
+## 0.15.5
 
 - upgrade dependencies (shellexpand & transitive deps)
 
-## 0.15.3
+## 0.15.3 / 0.15.4
 
 - upgrade all dependencies
+- musl build
 
 ## 0.15.2
 
