@@ -1,3 +1,7 @@
+## 0.15.4
+
+- upgrade dependencies (shellexpand & transitive deps)
+
 ## 0.15.3
 
 - upgrade all dependencies
