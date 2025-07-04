@@ -1,6 +1,6 @@
 [package]
 name = "binrep"
-version = "0.15.5"
+version = "0.15.6"
 authors = ["Philippe GASSMANN <pgassmann@scoop.it>"]
 edition = "2018"
 
